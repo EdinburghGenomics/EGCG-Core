@@ -224,7 +224,7 @@ def test_get_output_containers_from_sample_and_step_name(mocked_get_sample, mock
 @patched_clarity('get_sample_names_from_plate', ['this', 'that', 'other'])
 @patched_clarity('get_sample', Mock(artifact=Mock(container=FakeEntity('a_container', type=FakeEntity('96 well plate')))))
 def test_get_samples_arrived_with(mocked_get_sample, mocked_names_from_plate):
-    assert clarity.get_samples_arrived_with('a_sample_name') == ['this', 'that', 'other']
+    assert clarity.get_samples_arrived_with('a_sample_name') == {'this', 'that', 'other'}
     mocked_get_sample.assert_called_with('a_sample_name')
     mocked_names_from_plate.assert_called_with('a_container')
 
@@ -262,4 +262,16 @@ def test_get_released_samples(mocked_lims):
 def test_get_sample_release_date(mocked_get_procs, mocked_get_sample):
     assert clarity.get_sample_release_date('a_sample_name') == 'a_date_run'
     mocked_get_procs.assert_called_with(type='Data Release EG 1.0', inputartifactlimsid='an_artifact_id')
+    mocked_get_sample.assert_called_with('a_sample_name')
+
+
+@patched_clarity('get_sample', Mock(name='a_sample_name'))
+@patched_lims('get_artifacts', [Mock(udf={'Raw Library ID': 'a_library_id'})])
+def test_get_library_ids(mocked_get_artifacts, mocked_get_sample):
+    assert clarity.get_library_ids_for_sample('a_sample_name') == {'a_library_id'}
+    mocked_get_artifacts.assert_called_with(
+        sample_name='a_sample_name',
+        type='Analyte',
+        process_type='AUTOMATED - Clean Up ALP'
+    )
     mocked_get_sample.assert_called_with('a_sample_name')

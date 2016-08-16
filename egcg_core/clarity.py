@@ -32,7 +32,7 @@ def get_valid_lanes(flowcell_name):
     """
     containers = connection().get_containers(type='Patterned Flowcell', name=flowcell_name)
     if len(containers) != 1:
-        app_logger.warning('%s Flowcell(s) found for name %s', len(containers), flowcell_name)
+        app_logger.warning('%s Flowcell(s) found for %s', len(containers), flowcell_name)
         return None
 
     flowcell = containers[0]
@@ -43,7 +43,7 @@ def get_valid_lanes(flowcell_name):
         if not artifact.udf.get('Lane Failed?', False):
             valid_lanes.append(lane)
     valid_lanes = sorted(valid_lanes)
-    app_logger.info('Valid lanes for %s: %s', flowcell_name, str(valid_lanes))
+    app_logger.info('Valid lanes for flowcell %s: %s', flowcell_name, str(valid_lanes))
     return valid_lanes
 
 
@@ -54,7 +54,7 @@ def find_project_name_from_sample(sample_name):
         if len(project_names) == 1:
             return project_names.pop()
         else:
-            app_logger.error('%s projects found for sample %s', len(project_names), sample_name)
+            app_logger.error("%s projects found for sample '%s'", len(project_names), sample_name)
 
 
 def find_run_elements_from_sample(sample_name):
@@ -80,7 +80,7 @@ def get_species_from_sample(sample_name):
         species_strings = set([s.udf.get('Species') for s in samples])
         nspecies = len(species_strings)
         if nspecies != 1:
-            app_logger.error('%s species found for sample %s', nspecies, sample_name)
+            app_logger.error("%s species found for sample '%s'", nspecies, sample_name)
             return None
         species_string = species_strings.pop()
         if species_string:
@@ -143,10 +143,10 @@ def get_samples(sample_name):
 
 def get_sample(sample_name):
     samples = get_samples(sample_name)
-    if len(samples) != 1:
-        app_logger.warning('%s Sample(s) found for name %s', len(samples), sample_name)
-        return None
-    return samples[0]
+    if len(samples) == 1:
+        return samples[0]
+    else:
+        app_logger.warning('%s Sample(s) found for %s', len(samples), sample_name)
 
 
 def get_user_sample_name(sample_name, lenient=False):
@@ -197,11 +197,10 @@ def get_expected_yield_for_sample(sample_name):
 
 def get_run(run_id):
     runs = connection().get_processes(type='AUTOMATED - Sequence', udf={'RunID': run_id})
-    if not runs:
-        return None
-    elif len(runs) != 1:
+    if len(runs) == 1:
+        return runs[0]
+    else:
         app_logger.error('%s runs found for %s', len(runs), run_id)
-    return runs[0]
 
 
 def route_samples_to_delivery_workflow(sample_names):
@@ -217,8 +216,7 @@ def get_plate_id_and_well(sample_name):
     if sample:
         plate, well = sample.artifact.location
         return plate.name, well
-    else:
-        return None, None
+    return None, None
 
 
 def get_sample_names_from_plate(plate_id):
@@ -258,7 +256,7 @@ def get_samples_arrived_with(sample_name):
     if sample:
         container = sample.artifact.container
         if container.type.name == '96 well plate':
-            samples = get_sample_names_from_plate(container.name)
+            samples.update(get_sample_names_from_plate(container.name))
     return samples
 
 
@@ -295,9 +293,21 @@ def get_sample_release_date(sample_id):
     if not s:
         return None
     procs = connection().get_processes(type='Data Release EG 1.0', inputartifactlimsid=s.artifact.id)
-    if not procs:
+    if len(procs) == 1:
+        return procs[0].date_run
+    else:
+        app_logger.warning("%s Processes found for sample '%s' with Artifact %s", len(procs), sample_id, s.artifact.id)
+
+
+def get_library_ids_for_sample(sample_id):
+    if not get_sample(sample_id):
         return None
-    elif len(procs) != 1:
-        app_logger.warning('%s Processes found for sample %s with Artifact %s', len(procs), sample_id, s.artifact.id)
-        return None
-    return procs[0].date_run
+    artifacts = connection().get_artifacts(
+        sample_name=sample_id,
+        type='Analyte',
+        process_type='AUTOMATED - Clean Up ALP'
+    )
+    if not artifacts:
+        app_logger.warning("No 'Clean Up ALP' artifacts found for sample " + sample_id)
+    else:
+        return set(a.udf.get('Raw Library ID') for a in artifacts)
