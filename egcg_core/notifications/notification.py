@@ -2,8 +2,6 @@ from egcg_core.app_logging import AppLogger
 
 
 class Notification(AppLogger):
-    preprocess = None
-
     def __init__(self, name):
         self.name = name
 
@@ -11,10 +9,7 @@ class Notification(AppLogger):
         raise NotImplementedError
 
     def notify(self, msg):
-        if self.preprocess:
-            msg = self.preprocess(msg)
-        return self._notify(msg)
+        self._notify(self.preprocess(msg))
 
-    @staticmethod
-    def preprocess_message(msg):
+    def preprocess(self, msg):
         return msg

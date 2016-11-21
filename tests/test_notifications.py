@@ -1,3 +1,4 @@
+from os.path import join, abspath, dirname
 import pytest
 from unittest.mock import Mock, patch
 from smtplib import SMTPException
@@ -57,13 +58,14 @@ class TestEmailNotification(TestEGCG):
             recipients=['this', 'that', 'other'],
             mailhost='localhost',
             port=1337,
-            strict=True
+            strict=True,
+            email_template=join(dirname(dirname(abspath(__file__))), 'etc', 'email_notification.html')
         )
 
     def test_retries(self):
         with patch('smtplib.SMTP', new=FakeSMTP), patch('egcg_core.notifications.email_notification.sleep'):
-            assert self.email_ntf._try_send(self.email_ntf._prepare_message('this is a test')) is True
-            assert self.email_ntf._try_send(self.email_ntf._prepare_message('dodgy')) is False
+            assert self.email_ntf._try_send(self.email_ntf.preprocess('this is a test')) is True
+            assert self.email_ntf._try_send(self.email_ntf.preprocess('dodgy')) is False
 
             with pytest.raises(EGCGError) as e:
                 self.email_ntf.notify('dodgy')

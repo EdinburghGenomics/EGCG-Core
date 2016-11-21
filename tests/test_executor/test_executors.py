@@ -5,9 +5,8 @@ import subprocess
 from unittest.mock import patch, Mock
 from tests import TestEGCG
 from egcg_core.executor import Executor, StreamExecutor, ArrayExecutor, PBSExecutor, SlurmExecutor
-from egcg_core.executor.cluster_executor import ClusterExecutor
+from egcg_core.executor.cluster_executor import ClusterExecutor, running_executors, stop_running_jobs
 from egcg_core.exceptions import EGCGError
-from egcg_core.app_logging import logging_default as log_cfg
 
 get_stdout = 'egcg_core.executor.cluster_executor.ClusterExecutor._get_stdout'
 sleep = 'egcg_core.executor.cluster_executor.sleep'
@@ -15,9 +14,7 @@ sleep = 'egcg_core.executor.cluster_executor.sleep'
 
 class TestExecutor(TestEGCG):
     def _get_executor(self, cmd):
-        e = Executor(cmd)
-        e.log_cfg = log_cfg
-        return e
+        return Executor(cmd)
 
     def test_cmd(self):
         e = self._get_executor('ls ' + os.path.join(self.assets_path, '..'))
@@ -39,9 +36,7 @@ class TestExecutor(TestEGCG):
 
 class TestStreamExecutor(TestExecutor):
     def _get_executor(self, cmd):
-        e = StreamExecutor(cmd)
-        e.log_cfg = log_cfg
-        return e
+        return StreamExecutor(cmd)
 
     def test_cmd(self):
         e = self._get_executor(os.path.join(self.assets_path, 'countdown.sh'))
@@ -63,9 +58,7 @@ class TestStreamExecutor(TestExecutor):
 
 class TestArrayExecutor(TestExecutor):
     def _get_executor(self, cmds):
-        e = ArrayExecutor(cmds, stream=True)
-        e.log_cfg = log_cfg
-        return e
+        return ArrayExecutor(cmds, stream=True)
 
     def test_cmd(self):
         e = self._get_executor(['ls', 'ls -lh', 'pwd'])
@@ -88,18 +81,18 @@ class TestClusterExecutor(TestEGCG):
 
     def setUp(self):
         os.makedirs(os.path.join(self.assets_path, 'a_run_id'), exist_ok=True)
-        self._set_executor(self.script)
+        self.executor = self._get_executor(self.script)
+        self.ppath = 'egcg_core.executor.cluster_executor.' + self.executor.__class__.__name__
 
     def tearDown(self):
         shutil.rmtree(os.path.join(self.assets_path, 'a_run_id'))
 
-    def _set_executor(self, cmd):
-        self.executor = ClusterExecutor(
+    def _get_executor(self, cmd):
+        return ClusterExecutor(
             cmd,
             job_name='test_job',
             working_dir=os.path.join(self.assets_path, 'a_run_id')
         )
-        self.executor.log_cfg = log_cfg
 
     def test_get_stdout(self):
         popen = 'egcg_core.executor.executor.subprocess.Popen'
@@ -107,35 +100,38 @@ class TestClusterExecutor(TestEGCG):
             assert self.executor._get_stdout('ls -d ' + self.assets_path).endswith('tests/assets')
             p.assert_called_with(['ls', '-d', self.assets_path], stdout=-1, stderr=-1)
 
-    def test_cmd(self):
-        assert self.executor.submit_cmd == '/bin/sh ' + self.executor.writer.script_name
-
-    @patch(get_stdout, return_value=None)
-    def test_dodgy_cmd(self, mocked_get_stdout):
-        with pytest.raises(EGCGError) as e:
-            self._set_executor(os.path.join(self.assets_path, 'non_existent_script.sh'))
-            self.executor.submit_cmd = '/bin/sh non_existent_script.sh'
-            self.executor.start()
-            assert str(e) == 'Job submission failed'
-        mocked_get_stdout.assert_called_with('/bin/sh non_existent_script.sh')
+    def test_dodgy_cmd(self):
+        with pytest.raises(EGCGError) as err, patch(get_stdout, return_value=None):
+            ex = self._get_executor(os.path.join(self.assets_path, 'non_existent_script.sh'))
+            ex.start()
+            assert str(err) == 'Job submission failed'
 
     def test_join(self):
-        e_cls = 'egcg_core.executor.cluster_executor.' + self.executor.__class__.__name__
-        job_finished = e_cls + '._job_finished'
-        exit_code = e_cls + '._job_exit_code'
+        job_finished = self.ppath + '._job_finished'
+        exit_code = self.ppath + '._job_exit_code'
         self.executor.finished_statuses = 'FXM'
         with patch(job_finished, return_value=True), patch(exit_code, return_value=0), patch(sleep):
             assert self.executor.join() == 0
 
+    def test_job_cancellation(self):
+        with patch(self.ppath + '._submit_job'), patch(self.ppath + '._job_finished', return_value=True),\
+             patch(self.ppath + '.write_script'), patch(self.ppath + '._job_exit_code', return_value=9),\
+             patch(self.ppath + '.cancel_job'), patch(sleep):
+
+            self.executor.job_id = 'test_job'
+            self.executor.start()
+            assert running_executors == {'test_job': self.executor}
+            stop_running_jobs()
+            assert running_executors == {}
+
 
 class TestPBSExecutor(TestClusterExecutor):
-    def _set_executor(self, cmd):
-        self.executor = PBSExecutor(
+    def _get_executor(self, cmd):
+        return PBSExecutor(
             cmd,
             job_name='test_job',
             working_dir=os.path.join(self.assets_path, 'a_run_id')
         )
-        self.executor.log_cfg = log_cfg
 
     def test_qstat(self):
         fake_report = ('Job id            Name             User              Time Use S Queue\n'
@@ -164,13 +160,12 @@ class TestPBSExecutor(TestClusterExecutor):
 
 
 class TestSlurmExecutor(TestClusterExecutor):
-    def _set_executor(self, cmd):
-        self.executor = SlurmExecutor(
+    def _get_executor(self, cmd):
+        return SlurmExecutor(
             cmd,
             job_name='test_job',
             working_dir=os.path.join(self.assets_path, 'a_run_id')
         )
-        self.executor.log_cfg = log_cfg
 
     def test_sacct(self):
         with patch(get_stdout, return_value=' COMPLETED  0:0 \n COMPLETED  0:0\n FAILED 1:0') as p:

@@ -1,7 +1,7 @@
 from .executor import Executor
 from .stream_executor import StreamExecutor
 from .array_executor import ArrayExecutor
-from .cluster_executor import PBSExecutor, SlurmExecutor
+from .cluster_executor import PBSExecutor, SlurmExecutor, stop_running_jobs
 from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
 

@@ -8,9 +8,44 @@ working_dir = join(TestEGCG.assets_path, 'test_script_writer_wd')
 
 
 class TestScriptWriter(TestEGCG):
+    writer_cls = script_writers.ScriptWriter
+    array_index = 'JOB_INDEX'
+    exp_header = [
+            '#!/bin/bash\n',
+            '# job name: a_job_name',
+            '# cpus: 1',
+            '# mem: 2gb',
+            '# queue: a_job_queue',
+            '# log file: ' + join(working_dir, 'a_job_name.log'),
+            '# walltime: 3',
+            '# job array: 1-3',
+            '',
+            'cd ' + working_dir
+        ]
+
     def setUp(self):
+        self.exp_cmds = [
+            '',
+            'some',
+            'preliminary',
+            'cmds',
+            'case $%s in' % self.array_index,
+            '1) this\n;;',
+            '2) that\n;;',
+            '3) other\n;;',
+            '*) echo "Unexpected %s: $%s"' % (self.array_index, self.array_index),
+            'esac'
+        ]
+
         makedirs(working_dir, exist_ok=True)
-        self.script_writer = script_writers.ScriptWriter('a_job_name', working_dir, 'a_job_queue')
+        self.script_writer = self.writer_cls(
+            'a_job_name',
+            working_dir,
+            'a_job_queue',
+            cpus=1,
+            mem=2,
+            walltime='3'
+        )
         assert self.script_writer.lines == []
 
     def tearDown(self):
@@ -18,28 +53,26 @@ class TestScriptWriter(TestEGCG):
 
     def test_init(self):
         w = self.script_writer
-        assert w.job_name == 'a_job_name'
-        assert w.script_name == join(working_dir, 'a_job_name.sh')
+        assert w.script_name == join(working_dir, 'a_job_name') + w.suffix
         assert w.log_commands is True
         assert w.log_file == join(working_dir, 'a_job_name.log')
-        assert w.queue == 'a_job_queue'
 
     def test_register_cmd(self):
         self.script_writer.register_cmd('a_cmd', log_file='a_log_file')
         assert self.script_writer.lines == ['a_cmd > a_log_file 2>&1']
 
     def test_register_cmds(self):
-        self.script_writer.register_cmds('this', 'that')
+        self.script_writer.register_cmds('this', 'that', parallel=False)
         assert self.script_writer.lines == ['this', 'that']
 
     def test_add_job_array(self):
         self.script_writer.add_job_array('this', 'that', 'other')
         assert self.script_writer.lines == [
-            'case $JOB_INDEX in',
+            'case $%s in' % self.array_index,
             '1) this > ' + join(working_dir, 'a_job_name.log1') + ' 2>&1\n;;',
             '2) that > ' + join(working_dir, 'a_job_name.log2') + ' 2>&1\n;;',
             '3) other > ' + join(working_dir, 'a_job_name.log3') + ' 2>&1\n;;',
-            '*) echo "Unexpected JOB_INDEX: $JOB_INDEX"',
+            '*) echo "Unexpected %s: $%s"' % (self.array_index, self.array_index),
             'esac'
         ]
 
@@ -50,53 +83,11 @@ class TestScriptWriter(TestEGCG):
 
     def test_trim_field(self):
         s = script_writers.PBSWriter('a_job_name_too_long_for_pbs', 'a_working_dir', 'a_job_queue')
-        assert s.job_name == 'a_job_name_too_'
-
-
-class TestClusterWriter(TestScriptWriter):
-    writer_cls = script_writers.ClusterWriter
-    array_index = 'JOB_INDEX'
-    exp_cmds = [
-        '',
-        'some',
-        'preliminary',
-        'cmds',
-        'case $%s in' % array_index,
-        '1) this\n;;',
-        '2) that\n;;',
-        '3) other\n;;',
-        '*) echo "Unexpected %s: $%s"' % (array_index, array_index),
-        'esac'
-    ]
-    exp_header = [
-        '#!/bin/bash\n',
-        '# job name: a_job_name',
-        '# cpus: 1',
-        '# mem: 2gb',
-        '# queue: a_job_queue',
-        '# log file: ' + join(working_dir, 'a_job_name.log'),
-        '# walltime: 3',
-        '# job array: 1-3',
-        '',
-        'cd ' + working_dir
-    ]
-
-    def setUp(self):
-        super().setUp()
-        self.script_writer = self.writer_cls(
-            'a_job_name',
-            working_dir,
-            'a_job_queue',
-            cpus=1,
-            mem=2,
-            queue='a_queue',
-            walltime='3'
-        )
-        assert self.script_writer.lines == []
+        assert s.cluster_config['job_name'] == 'a_job_name_too_'
 
     def test(self):
         self.script_writer.log_commands = False
-        self.script_writer.register_cmds('some', 'preliminary', 'cmds')
+        self.script_writer.register_cmds('some', 'preliminary', 'cmds', parallel=False)
         self.script_writer.register_cmds('this', 'that', 'other', parallel=True)
         self.script_writer.add_header()
 
@@ -115,7 +106,7 @@ class TestPBSWriter(TestScriptWriter):
         '#PBS -q a_job_queue',
         '#PBS -j oe',
         '#PBS -o ' + join(working_dir, 'a_job_name.log'),
-        '#PBS -l walltime=3',
+        '#PBS -l walltime=3:00:00',
         '#PBS -J 1-3',
         '',
         'cd ' + working_dir
@@ -127,9 +118,9 @@ class TestSlurmWriter(TestScriptWriter):
     array_index = 'SLURM_ARRAY_TASK_ID'
     exp_header = [
         '#!/bin/bash\n',
-        '#SBATCH --job-name=a_job_name',
-        '#SBATCH --cpus-PER-TASK=1',
-        '#SBATCH --mem=2gb',
+        '#SBATCH --job-name="a_job_name"',
+        '#SBATCH --cpus-per-task=1',
+        '#SBATCH --mem=2g',
         '#SBATCH --partition=a_job_queue',
         '#SBATCH --output=' + join(working_dir, 'a_job_name.log'),
         '#SBATCH --time=3:00:00',

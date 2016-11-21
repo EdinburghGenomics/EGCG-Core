@@ -12,7 +12,7 @@ default:
     executor:
         job_execution: local  # pbs, slurm, local
         qsub: '/bin/sh'
-        job_queue: uv2000
+        job_queue: 'a_job_queue'
         pre_job_source: bashrc
 
     logging:
@@ -31,9 +31,9 @@ default:
             interval: 1
 
     clarity:
-        baseuri: a_baseuri
-        username: a_user
-        password: a_password
+        baseuri: 'a_baseuri'
+        username: 'a_user'
+        password: 'a_password'
 
     notifications:
         email:
