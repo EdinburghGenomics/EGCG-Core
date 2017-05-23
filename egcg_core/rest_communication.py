@@ -6,6 +6,7 @@ from urllib.parse import urljoin
 from egcg_core.config import cfg
 from egcg_core.app_logging import AppLogger
 from egcg_core.exceptions import RestCommunicationError
+from egcg_core.util import check_if_nested
 
 
 class Communicator(AppLogger):
@@ -114,6 +115,8 @@ class Communicator(AppLogger):
         # data can't upload complex structure that would require json encoding.
         # This mean we can't upload data with sub list or sub dict at the same time as files
         if 'files' in kwargs and kwargs['files'] and 'json' in kwargs and kwargs['json']:
+            if check_if_nested(kwargs.get('json')):
+                raise RestCommunicationError('Cannot upload files and nested json in one query')
             kwargs['data'] = kwargs.pop('json')
 
         r = requests.request(method, url, **kwargs)
