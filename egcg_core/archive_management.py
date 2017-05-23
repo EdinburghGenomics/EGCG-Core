@@ -1,6 +1,8 @@
 import os
 import re
 import subprocess
+from time import sleep
+
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.exceptions import EGCGError
 
@@ -89,7 +91,10 @@ def register_for_archiving(file_path):
     cmd = 'lfs hsm_archive %s' % file_path
     val = _get_stdout(cmd)
     if val is None or not is_register_for_archiving(file_path):
-        raise ArchivingError('Registering %s for archiving to tape failed' % file_path)
+        # Registering for archive can sometime take time so give it a second
+        sleep(1)
+        if val is None or not is_register_for_archiving(file_path):
+            raise ArchivingError('Registering %s for archiving to tape failed' % file_path)
     return True
 
 
