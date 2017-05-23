@@ -76,7 +76,7 @@ class TestArchiveManagement(TestEGCG):
                        '',
                        'testfile: (0x00000001)',
                     ]) as get_stdout:
-            self.assertRaises(ArchivingError, register_for_archiving, 'testfile')
+            self.assertRaises(ArchivingError, register_for_archiving, 'testfile', True)
             assert get_stdout.call_count == 3
             assert get_stdout.call_args_list[1][0] == ('lfs hsm_archive testfile',)
 
