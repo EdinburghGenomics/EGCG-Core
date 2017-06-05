@@ -1,6 +1,5 @@
 import re
 
-from _pytest import deprecated
 from genologics.lims import Lims
 from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
