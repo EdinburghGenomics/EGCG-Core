@@ -8,6 +8,17 @@ from egcg_core.app_logging import logging_default as log_cfg
 app_logger = log_cfg.get_logger('util')
 
 
+def check_if_nested(data):
+    if isinstance(data, dict):
+        for k in data:
+            if type(data[k]) in [list, dict]:
+                return True
+    elif isinstance(data, list):
+        for i in data:
+            if type(i) in [list, dict]:
+                return True
+    return False
+
 def find_files(*path_parts):
     return sorted(glob(os.path.join(*path_parts)))
 
