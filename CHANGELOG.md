@@ -13,6 +13,7 @@ json_list = [
 ] 
 rest_communication.post_or_patch('endpoint', json_list, 'element_id')
 ```
+- New functions for finding and routing to clarity steps
 
 
 0.6.12 (2017-05-16)
