@@ -75,4 +75,4 @@ class EmailNotification(Notification):
 
 
 def send_email(msg, mailhost, port, sender, recipients, subject, email_template=None, strict=False):
-    EmailNotification(subject, mailhost, port, sender, recipients, email_template, strict).notify(msg)
+    EmailNotification(subject, mailhost, port, sender, recipients, strict=strict, email_template=email_template).notify(msg)
