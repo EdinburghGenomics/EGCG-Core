@@ -1,3 +1,6 @@
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.utils import formatdate
 from os.path import join, abspath, dirname
 import pytest
 from unittest.mock import Mock, patch
@@ -104,6 +107,26 @@ class TestEmailNotification(TestEGCG):
         exp['To'] = 'some, recipients'
         obs = self.ntf.build_email('a message')
         assert str(obs) == str(exp)
+
+
+    def test_build_email_attachment(self):
+        self.ntf.email_template = None
+        exp = MIMEMultipart()
+        exp['Subject'] = 'a_subject'
+        exp['From'] = 'a_sender'
+        exp['To'] = 'some, recipients'
+        attachment = join(self.assets_path, 'test_to_upload.txt')
+        obs = self.ntf.build_email('a message', attachments=[attachment])
+        payload = obs.get_payload()
+        assert len(payload) == 2
+        assert str(payload[0]) == str(MIMEText('a message'))
+        with open(attachment, 'rb') as open_file:
+            part = MIMEApplication(
+                open_file.read(),
+                Name='test_to_upload.txt'
+            )
+            part['Content-Disposition'] = 'attachment; filename="test_to_upload.txt"'
+            assert str(payload[1]) == str(part)
 
 
 @patch('egcg_core.notifications.EmailNotification._try_send')
