@@ -1,9 +1,12 @@
+import mimetypes
+
 import requests
 import json
 from urllib.parse import urljoin
 from egcg_core.config import cfg
 from egcg_core.app_logging import AppLogger
 from egcg_core.exceptions import RestCommunicationError
+from egcg_core.util import check_if_nested
 
 
 class Communicator(AppLogger):
@@ -19,6 +22,58 @@ class Communicator(AppLogger):
         for k, v in queries.items():
             serialised_queries[k] = json.dumps(v) if type(v) is dict else v
         return serialised_queries
+
+    @staticmethod
+    def get_file_content(file_name):
+        """
+        This method open in binary mode th file provided.
+        :param file_name: path to the file
+        :return: file content
+        """
+        with open(file_name, 'rb') as open_f:
+            fc = open_f.read()
+        return fc
+
+    @staticmethod
+    def _extract_files(json_dict):
+        """
+        This method take a json dict and will search all the values for a tuple where the first element is "file".
+        It extract the value, read the content of the file and create another tuple ready to be used by requests
+        This method will modify the original json_dict and remove the file entry from it.
+        :param json_dict: The json dictionary to search
+        :return: a dict where the keys are the field to update and the value are tuple with (filename, file content, file MIME type)
+        """
+        files = {}
+        for k in json_dict:
+            if isinstance(json_dict[k], tuple) and len(json_dict[k]) > 1 and json_dict[k][0] == 'file':
+                # Construct the 3 parts file upload tuple as requests requires it
+                files[k] = (
+                    json_dict[k][1],                                 # file name
+                    Communicator.get_file_content(json_dict[k][1]),  # file content
+                    mimetypes.guess_type(json_dict[k][1])[0]         # file mime type
+                )
+        if files:
+            # remove the extracted files to the original json
+            for k in files:
+                json_dict.pop(k)
+            return files
+        return None
+
+    @staticmethod
+    def _detect_files_in_json(json_data):
+        if isinstance(json_data, list):
+            # Assume a list of dict
+            list_files = []
+            list_jsons = []
+            for d in json_data:
+                _d = dict(d)
+                list_files.append(Communicator._extract_files(_d))
+                list_jsons.append(_d)
+            return list_files, list_jsons
+        if isinstance(json_data, dict):
+            # Assume a single dict
+            _json_dict = dict(json_data)
+            return Communicator._extract_files(_json_dict), _json_dict
 
     @property
     def baseurl(self):
@@ -56,10 +111,19 @@ class Communicator(AppLogger):
             # noinspection PyTypeChecker
             kwargs['headers'] = dict(kwargs.get('headers', {}), Authorization='Token ' + self.auth)
 
+        # can't upload json and files at the same time so move the json parameter to data
+        # data can't upload complex structure that would require json encoding.
+        # This mean we can't upload data with sub list or sub dict at the same time as files
+        if 'files' in kwargs and kwargs['files'] and 'json' in kwargs and kwargs['json']:
+            if check_if_nested(kwargs.get('json')):
+                raise RestCommunicationError('Cannot upload files and nested json in one query')
+            kwargs['data'] = kwargs.pop('json')
+
         r = requests.request(method, url, **kwargs)
 
         kwargs.pop('auth', None)
         kwargs.pop('headers', None)
+        kwargs.pop('files', None)
         # e.g: 'POST <url> ({"some": "args"}) -> {"some": "content"}. Status code 201. Reason: CREATED
         report = '%s %s (%s) -> %s. Status code %s. Reason: %s' % (
             r.request.method, r.request.path_url, kwargs, r.content.decode('utf-8'), r.status_code, r.reason
@@ -100,10 +164,12 @@ class Communicator(AppLogger):
             self.warning('No document found in endpoint %s for %s', endpoint, query_args)
 
     def post_entry(self, endpoint, payload):
-        return self._req('POST', self.api_url(endpoint), json=payload)
+        files, payload = self._detect_files_in_json(payload)
+        return self._req('POST', self.api_url(endpoint), json=payload, files=files)
 
     def put_entry(self, endpoint, element_id, payload):
-        return self._req('PUT', urljoin(self.api_url(endpoint), element_id), json=payload)
+        files, payload = self._detect_files_in_json(payload)
+        return self._req('PUT', urljoin(self.api_url(endpoint), element_id), json=payload, files=files)
 
     def _patch_entry(self, endpoint, doc, payload, update_lists=None):
         """
@@ -114,13 +180,14 @@ class Communicator(AppLogger):
         :param list update_lists: Doc items listed here will be appended rather than replaced by the patch
         """
         url = urljoin(self.api_url(endpoint), doc['_id'])
+        files, payload = self._detect_files_in_json(payload)
         _payload = dict(payload)
         if update_lists:
             for l in update_lists:
                 content = doc.get(l, [])
                 new_content = [x for x in _payload.get(l, []) if x not in content]
                 _payload[l] = content + new_content
-        return self._req('PATCH', url, headers={'If-Match': doc['_etag']}, json=_payload)
+        return self._req('PATCH', url, headers={'If-Match': doc['_etag']}, json=_payload, files=files)
 
     def patch_entry(self, endpoint, payload, id_field, element_id, update_lists=None):
         """
@@ -154,7 +221,7 @@ class Communicator(AppLogger):
         For each document supplied, either post to the endpoint if the unique id doesn't yet exist there, or
         patch if it does.
         :param str endpoint:
-        :param input_json: A single document or list of documents to post or patch to the endpoint.
+        :param input_json: A list of documents to post or patch to the endpoint.
         :param str id_field: The field to use as the unique ID for the endpoint.
         :param list update_lists:
         """
