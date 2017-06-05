@@ -6,7 +6,9 @@ python:
 install:
   - "pip install -r requirements.txt"
   - "python setup.py install"
-script: py.test
+script: py.test tests/ --doctest-modules  -v --cov egcg_core --cov-report term-missing
+after_success:
+  - coveralls
 # branches:
 #   only:
 #     - master
