@@ -1,8 +1,6 @@
 pytest>=2.7.2
-pytest-cov
 PyYAML>=3.11
 genologics>=0.3.2
 jinja2==2.8
 asana==0.6.2
 cached_property
-python-coveralls
