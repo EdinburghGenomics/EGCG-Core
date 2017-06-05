@@ -329,7 +329,7 @@ def get_queue_uri(workflow_name, stage_name=None):
     return connection().baseuri + 'clarity/queue/' + workflow_stage.step.id
 
 
-def route_samples_workflow_stage(sample_names, workflow_name, stage_name=None):
+def route_samples_to_workflow_stage(sample_names, workflow_name, stage_name=None):
     samples = get_list_of_samples(sample_names)
     artifacts = [sample.artifact for sample in samples]
     workflow_stage = get_workflow_stage(workflow_name, stage_name=stage_name)
@@ -337,7 +337,7 @@ def route_samples_workflow_stage(sample_names, workflow_name, stage_name=None):
 
 
 def route_samples_to_delivery_workflow(sample_names):
-    route_samples_workflow_stage(sample_names, 'Data Release EG 1.0')
+    route_samples_to_workflow_stage(sample_names, 'Data Release EG 1.0')
 
 
 #Project functions
