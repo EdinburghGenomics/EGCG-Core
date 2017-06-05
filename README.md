@@ -5,6 +5,8 @@ EGCG-Core
 [![travis](https://img.shields.io/travis/EdinburghGenomics/EGCG-Core/master.svg)](https://travis-ci.org/EdinburghGenomics/EGCG-Core)
 [![landscape](https://landscape.io/github/EdinburghGenomics/EGCG-Core/master/landscape.svg)](https://landscape.io/github/EdinburghGenomics/EGCG-Core)
 [![GitHub issues](https://img.shields.io/github/issues/EdinburghGenomics/EGCG-Core.svg)](https://github.com/EdinburghGenomics/EGCG-Core/issues)  
+[![Coverage Status](https://coveralls.io/repos/github/EdinburghGenomics/EGCG-Core/badge.svg)](https://coveralls.io/github/EdinburghGenomics/EGCG-Core)
+
 This is a core module for Edinburgh Genomics' clinical processing. It contains common modules for use across
 EGCG's various projects, including logging, configuration, exceptions and random utility functions. There are
 also modules for interfacing with EGCG\'s reporting app and Clarity LIMS instance.
