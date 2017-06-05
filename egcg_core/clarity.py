@@ -1,4 +1,5 @@
 import re
+
 from genologics.lims import Lims
 from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
@@ -24,6 +25,7 @@ def connection():
     return _lims
 
 
+# Run functions
 def get_valid_lanes(flowcell_name):
     """
     Get all valid lanes for a given flowcell
@@ -47,6 +49,16 @@ def get_valid_lanes(flowcell_name):
     return valid_lanes
 
 
+def get_run(run_id):
+    runs = connection().get_processes(type='AUTOMATED - Sequence', udf={'RunID': run_id})
+    if not runs:
+        return None
+    elif len(runs) != 1:
+        app_logger.error('%s runs found for %s', len(runs), run_id)
+    return runs[0]
+
+
+# Sample functions
 def find_project_name_from_sample(sample_name):
     samples = get_samples(sample_name)
     if samples:
@@ -208,23 +220,6 @@ def get_expected_yield_for_sample(sample_name):
             return nb_gb * 1000000000
 
 
-def get_run(run_id):
-    runs = connection().get_processes(type='AUTOMATED - Sequence', udf={'RunID': run_id})
-    if not runs:
-        return None
-    elif len(runs) != 1:
-        app_logger.error('%s runs found for %s', len(runs), run_id)
-    return runs[0]
-
-
-def route_samples_to_delivery_workflow(sample_names):
-    lims = connection()
-    samples = [get_sample(sample_name) for sample_name in sample_names]
-    artifacts = [sample.artifact for sample in samples]
-    workflow_uri = lims.get_uri('configuration', 'workflows', '401')
-    lims.route_artifacts(artifacts, workflow_uri=workflow_uri)
-
-
 def get_plate_id_and_well(sample_name):
     sample = get_sample(sample_name)
     if sample:
@@ -315,7 +310,37 @@ def get_sample_release_date(sample_id):
         return sorted([p.date_run for p in procs], reverse=True)[0]
     return procs[0].date_run
 
+# Step functions
+def get_workflow_stage(workflow_name, stage_name=None):
+    lims = connection()
+    workflows = lims.get_workflows(name=workflow_name)
+    if len(workflows) != 1:
+        return
+    if not stage_name:
+        return workflows[0].stages[0]
+    stages = [s for s in workflows[0].stages if s.name == stage_name]
+    if len(stages) != 1:
+        return
+    return stages[0]
 
+
+def get_queue_uri(workflow_name, stage_name=None):
+    workflow_stage = get_workflow_stage(workflow_name, stage_name)
+    return connection().baseuri + 'clarity/queue/' + workflow_stage.step.id
+
+
+def route_samples_to_workflow_stage(sample_names, workflow_name, stage_name=None):
+    samples = get_list_of_samples(sample_names)
+    artifacts = [sample.artifact for sample in samples]
+    workflow_stage = get_workflow_stage(workflow_name, stage_name=stage_name)
+    connection().route_artifacts(artifacts, stage_uri=workflow_stage.uri)
+
+
+def route_samples_to_delivery_workflow(sample_names):
+    route_samples_to_workflow_stage(sample_names, 'Data Release EG 1.0')
+
+
+#Project functions
 def get_project(project_id):
     lims = connection()
     projects = lims.get_projects(name=project_id)
