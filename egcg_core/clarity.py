@@ -337,7 +337,7 @@ def route_samples_workflow_stage(sample_names, workflow_name, stage_name=None):
 
 
 def route_samples_to_delivery_workflow(sample_names):
-    route_samples_to_delivery_workflow(sample_names, 'Data Release EG 1.0')
+    route_samples_workflow_stage(sample_names, 'Data Release EG 1.0')
 
 
 #Project functions
