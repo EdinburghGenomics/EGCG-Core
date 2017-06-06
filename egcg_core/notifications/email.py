@@ -25,8 +25,8 @@ class EmailNotification(Notification):
         self.email_template = email_template
         self.strict = strict
 
-    def notify(self, msg):
-        email = self.build_email(msg)
+    def notify(self, msg, attachment=None):
+        email = self.build_email(msg, attachment)
         success = self._try_send(email)
         if not success:
             err_msg = 'Failed to send message: ' + str(msg)
@@ -57,7 +57,7 @@ class EmailNotification(Notification):
         """
         Create a MIMEMultipart email which can contain:
         MIMEText formated from plain text of Jinja templated html.
-        MIMEApplication containing attachment
+        MIMEApplication containing attachments
         :param str body: The main body of the email to send
         """
 
@@ -67,6 +67,8 @@ class EmailNotification(Notification):
         else:
             text = MIMEText(body)
         if attachments:
+            if isinstance(attachments, str):
+                attachments = [attachments]
             msg = MIMEMultipart()
             msg.attach(text)
         else:
@@ -98,5 +100,13 @@ class EmailNotification(Notification):
         connection.quit()
 
 
-def send_email(msg, mailhost, port, sender, recipients, subject, email_template=None, strict=False):
-    EmailNotification(subject, mailhost, port, sender, recipients, strict=strict, email_template=email_template).notify(msg)
+def send_email(msg, mailhost, port, sender, recipients, subject, email_template=None, strict=False, attachments=None):
+    EmailNotification(
+        subject,
+        mailhost,
+        port,
+        sender,
+        recipients,
+        strict=strict,
+        email_template=email_template
+    ).notify(msg, attachments)
