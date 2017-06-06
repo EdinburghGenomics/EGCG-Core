@@ -14,6 +14,7 @@ json_list = [
 rest_communication.post_or_patch('endpoint', json_list, 'element_id')
 ```
 - New functions for finding and routing to clarity steps
+- Notification (email, asana and log) can now accept attachments
 
 
 0.6.12 (2017-05-16)
