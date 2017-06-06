@@ -1,4 +1,7 @@
 import logging
+
+import os
+
 from .notification import Notification
 
 
@@ -17,11 +20,11 @@ class LogNotification(Notification):
         handler.setLevel(logging.INFO)
         self._logger.addHandler(handler)
 
-    def notify(self, msg, attachments):
+    def notify(self, msg, attachments=None):
         self.info(msg)
         if attachments:
             if isinstance(attachments, str):
                 attachments = [attachments]
 
         for attachment in attachments or []:
-            self.info('Attachment: ' % attachment)
+            self.info('Attachment: %s' % attachment)
