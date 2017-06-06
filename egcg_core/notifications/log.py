@@ -17,5 +17,11 @@ class LogNotification(Notification):
         handler.setLevel(logging.INFO)
         self._logger.addHandler(handler)
 
-    def notify(self, msg):
+    def notify(self, msg, attachments):
         self.info(msg)
+        if attachments:
+            if isinstance(attachments, str):
+                attachments = [attachments]
+
+        for attachment in attachments or []:
+            self.info('Attachment: ' % attachment)
