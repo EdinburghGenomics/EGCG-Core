@@ -5,5 +5,5 @@ class Notification(AppLogger):
     def __init__(self, name):
         self.name = name
 
-    def notify(self, msg, attachments):
+    def notify(self, msg, attachments=None):
         raise NotImplementedError
