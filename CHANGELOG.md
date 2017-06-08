@@ -1,10 +1,10 @@
 Changelog for EGCG-Core
 ===========================
 
-0.8 (unreleased)
+0.7.1 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Fix data release workflow name
 
 
 0.7 (2017-06-08)

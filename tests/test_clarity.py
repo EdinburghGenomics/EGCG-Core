@@ -191,7 +191,16 @@ def test_get_run(mocked_lims):
 @patched_lims('get_workflows', return_value=[Mock(uri='workflow_uri', stages=[Mock(uri='stage_uri')])])
 def test_route_samples_to_delivery_workflow(mocked_get_workflow, mocked_get_list_of_sample, mocked_route):
     clarity.route_samples_to_delivery_workflow(['a_sample_id', 'another_sample_id'])
-    mocked_get_workflow.assert_called_with(name='Data Release EG 1.0')
+    mocked_get_workflow.assert_called_with(name='Data Release 1.0')
+    mocked_get_list_of_sample.assert_called_with(['a_sample_id', 'another_sample_id'])
+    mocked_route.assert_called_with(['this', 'that'], stage_uri='stage_uri')
+
+@patched_lims('route_artifacts')
+@patched_clarity('get_list_of_samples', return_value=[Mock(artifact='this'), Mock(artifact='that')])
+@patched_lims('get_workflows', return_value=[Mock(uri='workflow_uri', stages=[Mock(uri='stage_uri')])])
+def test_route_samples_to_delivery_workflow(mocked_get_workflow, mocked_get_list_of_sample, mocked_route):
+    clarity.route_samples_to_delivery_workflow(['a_sample_id', 'another_sample_id'], workflow_name='Much better workflow')
+    mocked_get_workflow.assert_called_with(name='Much better workflow')
     mocked_get_list_of_sample.assert_called_with(['a_sample_id', 'another_sample_id'])
     mocked_route.assert_called_with(['this', 'that'], stage_uri='stage_uri')
 

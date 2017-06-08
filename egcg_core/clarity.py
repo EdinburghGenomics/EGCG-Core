@@ -336,8 +336,11 @@ def route_samples_to_workflow_stage(sample_names, workflow_name, stage_name=None
     connection().route_artifacts(artifacts, stage_uri=workflow_stage.uri)
 
 
-def route_samples_to_delivery_workflow(sample_names):
-    route_samples_to_workflow_stage(sample_names, 'Data Release EG 1.0')
+def route_samples_to_delivery_workflow(sample_names, workflow_name=None):
+    if workflow_name:
+        route_samples_to_workflow_stage(sample_names, workflow_name)
+    else:
+        route_samples_to_workflow_stage(sample_names, 'Data Release 1.0')
 
 
 #Project functions
