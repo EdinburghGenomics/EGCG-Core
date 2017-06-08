@@ -40,6 +40,7 @@ setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.6",
     ],
     keywords='EdinburghGenomics executor notification logging api rest',
     requires=[_translate_req(r) for r in requirements],  # metadata
