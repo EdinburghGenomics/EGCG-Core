@@ -1,20 +1,13 @@
 Changelog for EGCG-Core
 ===========================
 
-0.6.13 (unreleased)
--------------------
+0.7 (2017-06-08)
+----------------
 
-- Add functions to upload file to rest API by providing the file path as part of a dict
-```python 
-#with simple json --> use only one query
-json_list = [
-    {'element_id': 'e1', 'key1': 'value1', 'report_r1': ('file', 'path/to/file/to/upload1.html')},
-    {'element_id': 'e2', 'key1': 'value2', 'report_r1': ('file', 'path/to/file/to/upload2.html')}
-] 
-rest_communication.post_or_patch('endpoint', json_list, 'element_id')
-```
+- Add ability to upload files through `rest_communication`
 - New functions for finding and routing to clarity steps
-- Notification (email, asana and log) can now accept attachments
+- Notifications (email, asana and log) can now accept attachments
+- Added a retry in archive_management.register_for_archiving
 
 
 0.6.12 (2017-05-16)

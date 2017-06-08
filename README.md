@@ -141,3 +141,42 @@ Contains functions for interacting with the external Rest API. Uses the `request
 - patch_entry
 - patch_entries - Iterates through payloads and patches each one. Only runs get_documents once.
 - post_or_patch - Tries to post an entry and if unsuccessful, prepares the payload and patches instead.
+
+#### uploading files
+Post, put and patch requests are also able to upload files to the Rest API where the data type in the schema
+is 'media'. To pass files to `requests`, specify the file to upload as a tuple consisting of the string 'file'
+plus the file path. However, files cannot be uploaded inside complex nested JSON, so in this case, two
+separate pushes would be necessary - one for the JSON and one for the files.
+
+```python
+import rest_communication
+
+# files with simple json --> can do this in one action
+data = [
+    {'element_id': 'e1', 'key1': 'value1', 'report_r1': ('file', 'path/to/file/to/upload1.html')},
+    {'element_id': 'e2', 'key1': 'value2', 'report_r1': ('file', 'path/to/file/to/upload2.html')}
+]
+rest_communication.post_or_patch('endpoint', data, 'element_id')
+
+
+# files with nested json --> cannot do this in one action
+data = [
+    {'element_id': 'e1', 'key1': {'k': 'v1'}, 'report_r1': ('file', 'path/to/file/to/upload1.html')},
+    {'element_id': 'e2', 'key1': {'k': 'v2'}, 'report_r1': ('file', 'path/to/file/to/upload2.html')}
+]
+rest_communication.post_or_patch('endpoint', data, 'element_id')
+# raises RestCommunicationError('Cannot upload files and nested json in one query')
+
+
+# files with nested json --> need to split into two actions
+data = [
+    {'element_id': 'e1', 'key1': {'k': 'v1'}},
+    {'element_id': 'e2', 'key1': {'k': 'v2'}}
+]
+files = [
+    {'element_id': 'e1', 'report_r1': ('file', 'path/to/file/to/upload1.html')},
+    {'element_id': 'e2', 'report_r1': ('file', 'path/to/file/to/upload2.html')}
+]
+rest_communication.post_or_patch('endpoint', data, 'element_id')
+rest_communication.post_or_patch('endpoint', files, 'element_id')
+```
