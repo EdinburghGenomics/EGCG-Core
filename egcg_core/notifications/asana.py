@@ -1,5 +1,6 @@
 import asana
 from cached_property import cached_property
+from os.path import basename
 
 from .notification import Notification
 
@@ -15,9 +16,22 @@ class AsanaNotification(Notification):
         if task_description:
             self.task_template['notes'] = task_description
 
-    def notify(self, msg):
+    def notify(self, msg, attachments=None):
         self.client.tasks.add_comment(self.task['id'], text=msg)
         self.client.tasks.update(self.task['id'], completed=False)
+
+        if attachments:
+            if isinstance(attachments, str):
+                attachments = [attachments]
+
+        for attachment in attachments or []:
+            with open(attachment, "rb") as fil:
+                content = fil.read()
+                self.client.attachments.create_on_task(
+                    task_id=self.task['id'],
+                    file_content=content,
+                    file_name=basename(attachment)
+                )
 
     @cached_property
     def task(self):

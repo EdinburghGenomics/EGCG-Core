@@ -1,10 +1,16 @@
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.utils import formatdate
 from os.path import join, abspath, dirname
+
+import os
 import pytest
 from unittest.mock import Mock, patch
 from smtplib import SMTPException
 from email.mime.text import MIMEText
 from egcg_core.notifications import NotificationCentre, EmailNotification, send_email, AsanaNotification
 from egcg_core.exceptions import EGCGError
+from egcg_core.notifications.log import LogNotification
 from tests import TestEGCG
 
 
@@ -46,6 +52,34 @@ class TestNotificationCentre(TestEGCG):
         self.notification_centre.notify_all('a message')
         for name, s in self.notification_centre.subscribers.items():
             s.notify.assert_called_with('a message')
+
+
+class TestLogNotification(TestEGCG):
+    def setUp(self):
+        self.notification_log = join(self.assets_path, 'LogNotification.log')
+        self.ntf = LogNotification('log_notification', self.notification_log)
+
+    def tearDown(self):
+        os.remove(self.notification_log)
+
+    def test_notify(self):
+        self.ntf.notify('message')
+        with open(self.notification_log) as open_file:
+            assert '[log_notification] message' in open_file.read()
+
+    def _test_notify_with_attachements(self, attachments):
+        attachment = join(self.assets_path, 'test_to_upload.txt')
+        self.ntf.notify('message', attachments=attachments)
+        with open(self.notification_log) as open_file:
+            data = open_file.read().split('\n')
+            assert '[log_notification] message' in data[0]
+            assert '[log_notification] Attachment: %s' % attachment in data[1]
+
+    def test_notify_with_attachement(self):
+        self._test_notify_with_attachements([join(self.assets_path, 'test_to_upload.txt')])
+
+    def test_notify_with_attachements(self):
+        self._test_notify_with_attachements(join(self.assets_path, 'test_to_upload.txt'))
 
 
 class TestEmailNotification(TestEGCG):
@@ -105,6 +139,33 @@ class TestEmailNotification(TestEGCG):
         obs = self.ntf.build_email('a message')
         assert str(obs) == str(exp)
 
+    def _test_build_email_attachments(self, attachements):
+        attachment = join(self.assets_path, 'test_to_upload.txt')
+        self.ntf.email_template = None
+        exp = MIMEMultipart()
+        exp['Subject'] = 'a_subject'
+        exp['From'] = 'a_sender'
+        exp['To'] = 'some, recipients'
+        obs = self.ntf.build_email('a message', attachments=attachements)
+        payload = obs.get_payload()
+        assert len(payload) == 2
+        assert str(payload[0]) == str(MIMEText('a message'))
+        with open(attachment, 'rb') as open_file:
+            part = MIMEApplication(
+                open_file.read(),
+                Name='test_to_upload.txt'
+            )
+            part['Content-Disposition'] = 'attachment; filename="test_to_upload.txt"'
+            assert str(payload[1]) == str(part)
+
+    def test_build_email_attachments(self):
+        attachment = join(self.assets_path, 'test_to_upload.txt')
+        self._test_build_email_attachments([attachment])
+
+    def test_build_email_attachment(self):
+        attachment = join(self.assets_path, 'test_to_upload.txt')
+        self._test_build_email_attachments(attachment)
+
 
 @patch('egcg_core.notifications.EmailNotification._try_send')
 def test_send_email(mocked_send):
@@ -139,6 +200,21 @@ class TestAsanaNotification(TestEGCG):
     def test_add_comment(self):
         self.ntf.notify('a comment')
         self.ntf.client.tasks.add_comment.assert_called_with(1337, text='a comment')
+
+    def _test_add_comment_with_attachments(self, attachments):
+        self.ntf.notify('a comment', attachments=[join(self.assets_path, 'test_to_upload.txt')])
+        self.ntf.client.tasks.add_comment.assert_called_with(1337, text='a comment')
+        self.ntf.client.attachments.create_on_task.assert_called_with(
+            file_content=b'test content',
+            file_name='test_to_upload.txt',
+            task_id=1337
+        )
+
+    def test_add_comment_with_attachments(self):
+        self._test_add_comment_with_attachments([join(self.assets_path, 'test_to_upload.txt')])
+
+    def test_add_comment_with_attachment(self):
+        self._test_add_comment_with_attachments(join(self.assets_path, 'test_to_upload.txt'))
 
     def test_get_entity(self):
         collection = [{'name': 'this'}, {'name': 'that'}]
