@@ -1,11 +1,11 @@
 import re
-
 from genologics.lims import Lims
 from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.exceptions import EGCGError
 
 app_logger = log_cfg.get_logger('clarity')
+
 try:
     from egcg_core.ncbi import get_species_name
 except ImportError:
@@ -188,10 +188,7 @@ def get_user_sample_name(sample_name, lenient=False):
 def get_sample_gender(sample_name):
     sample = get_sample(sample_name)
     if sample:
-        gender = sample.udf.get('Sex')
-        if not gender:
-            gender = sample.udf.get('Gender')
-        return gender
+        return sample.udf.get('Sex') or sample.udf.get('Gender')
 
 
 def get_sample_genotype(sample_name, output_file_name):
@@ -241,20 +238,17 @@ def get_sample_names_from_plate(plate_id):
 
 
 def get_sample_names_from_project(project_id):
-    samples = connection().get_samples(projectname=project_id)
-    sample_names = [sample.name for sample in samples]
-    return sample_names
+    return [sample.name for sample in connection().get_samples(projectname=project_id)]
 
 
 def get_output_containers_from_sample_and_step_name(sample_name, step_name):
     lims = connection()
-    sample = get_sample(sample_name)
-    sample_name = sample.name
+    s = get_sample(sample_name)
     containers = set()
-    arts = [a.id for a in lims.get_artifacts(sample_name=sample_name)]
+    arts = [a.id for a in lims.get_artifacts(sample_name=s.name)]
     prcs = lims.get_processes(type=step_name, inputartifactlimsid=arts)
     for prc in prcs:
-        arts = prc.input_per_sample(sample_name)
+        arts = prc.input_per_sample(s.name)
         for art in arts:
             containers.update([o.container for o in prc.outputs_per_input(art.id, Analyte=True)])
     return containers
@@ -271,9 +265,8 @@ def get_samples_arrived_with(sample_name):
 
 
 def get_samples_for_same_step(sample_name, step_name):
-    sample = get_sample(sample_name)
-    sample_name = sample.name
-    containers = get_output_containers_from_sample_and_step_name(sample_name, step_name)
+    s = get_sample(sample_name)
+    containers = get_output_containers_from_sample_and_step_name(s.name, step_name)
     samples = set()
     for container in containers:
         samples.update(get_sample_names_from_plate(container.name))
@@ -306,21 +299,23 @@ def get_sample_release_date(sample_id):
     if not procs:
         return None
     elif len(procs) != 1:
-        app_logger.warning('%s Processes found for sample %s: Return latest one', len(procs), sample_id)
+        app_logger.warning('%s Processes found for sample %s: returning latest one', len(procs), sample_id)
         return sorted([p.date_run for p in procs], reverse=True)[0]
     return procs[0].date_run
+
 
 # Step functions
 def get_workflow_stage(workflow_name, stage_name=None):
     lims = connection()
     workflows = lims.get_workflows(name=workflow_name)
     if len(workflows) != 1:
-        return
+        return None
     if not stage_name:
         return workflows[0].stages[0]
+
     stages = [s for s in workflows[0].stages if s.name == stage_name]
     if len(stages) != 1:
-        return
+        return None
     return stages[0]
 
 
@@ -337,13 +332,10 @@ def route_samples_to_workflow_stage(sample_names, workflow_name, stage_name=None
 
 
 def route_samples_to_delivery_workflow(sample_names, workflow_name=None):
-    if workflow_name:
-        route_samples_to_workflow_stage(sample_names, workflow_name)
-    else:
-        route_samples_to_workflow_stage(sample_names, 'Data Release 1.0')
+    route_samples_to_workflow_stage(sample_names, workflow_name or 'Data Release 1.0')
 
 
-#Project functions
+# Project functions
 def get_project(project_id):
     lims = connection()
     projects = lims.get_projects(name=project_id)

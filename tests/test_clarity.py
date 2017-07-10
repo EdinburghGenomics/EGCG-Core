@@ -15,8 +15,8 @@ def patched_lims(method, return_value=None, side_effect=None):
     return patched('_lims.' + method, return_value=return_value, side_effect=side_effect)
 
 
-def patched_clarity(function, return_value=None, side_effect=None):
-    return patched(function, return_value=return_value, side_effect=side_effect)
+def patched_clarity(func, return_value=None, side_effect=None):
+    return patched(func, return_value=return_value, side_effect=side_effect)
 
 
 class FakeEntity(Mock):
@@ -195,12 +195,13 @@ def test_route_samples_to_delivery_workflow_no_name(mocked_get_workflow, mocked_
     mocked_get_list_of_sample.assert_called_with(['a_sample_id', 'another_sample_id'])
     mocked_route.assert_called_with(['this', 'that'], stage_uri='stage_uri')
 
+
 @patched_lims('route_artifacts')
 @patched_clarity('get_list_of_samples', return_value=[Mock(artifact='this'), Mock(artifact='that')])
 @patched_lims('get_workflows', return_value=[Mock(uri='workflow_uri', stages=[Mock(uri='stage_uri')])])
 def test_route_samples_to_delivery_workflowwith_name(mocked_get_workflow, mocked_get_list_of_sample, mocked_route):
-    clarity.route_samples_to_delivery_workflow(['a_sample_id', 'another_sample_id'], workflow_name='Much better workflow')
-    mocked_get_workflow.assert_called_with(name='Much better workflow')
+    clarity.route_samples_to_delivery_workflow(['a_sample_id', 'another_sample_id'], workflow_name='another workflow')
+    mocked_get_workflow.assert_called_with(name='another workflow')
     mocked_get_list_of_sample.assert_called_with(['a_sample_id', 'another_sample_id'])
     mocked_route.assert_called_with(['this', 'that'], stage_uri='stage_uri')
 
@@ -236,11 +237,11 @@ def test_get_output_containers_from_sample_and_step_name(mocked_get_sample, mock
 
 
 @patched_clarity('get_sample_names_from_plate', ['this', 'that', 'other'])
-@patched_clarity('get_sample', Mock(artifact=Mock(container=FakeEntity('a_container', type=FakeEntity('96 well plate')))))
+@patched_clarity('get_sample', Mock(artifact=Mock(container=FakeEntity('a_plate', type=FakeEntity('96 well plate')))))
 def test_get_samples_arrived_with(mocked_get_sample, mocked_names_from_plate):
     assert clarity.get_samples_arrived_with('a_sample_name') == ['this', 'that', 'other']
     mocked_get_sample.assert_called_with('a_sample_name')
-    mocked_names_from_plate.assert_called_with('a_container')
+    mocked_names_from_plate.assert_called_with('a_plate')
 
 
 @patched_clarity('get_sample_names_from_plate', ['other'])
@@ -282,5 +283,5 @@ def test_get_sample_release_date(mocked_get_procs, mocked_get_sample):
 
     assert clarity.get_sample_release_date('a_sample_name2') == 'a_older_date_run'
     clarity.app_logger.warning.assert_called_with(
-        '%s Processes found for sample %s: Return latest one', 2, 'a_sample_name2'
+        '%s Processes found for sample %s: returning latest one', 2, 'a_sample_name2'
     )

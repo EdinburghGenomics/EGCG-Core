@@ -1,6 +1,5 @@
 import hashlib
-import os
-from os import makedirs
+from os import makedirs, symlink
 from shutil import rmtree
 from os.path import join, basename
 from tests import TestEGCG
@@ -24,14 +23,14 @@ def test_str_join():
 
 def test_find_fastqs():
     fastqs = util.find_fastqs(fastq_dir, '10015AT', '10015AT0001')
-    for file_name in ['10015AT0001_S6_L004_R1_001.fastq.gz', '10015AT0001_S6_L004_R2_001.fastq.gz',
-                      '10015AT0001_S6_L005_R1_001.fastq.gz', '10015AT0001_S6_L005_R2_001.fastq.gz']:
+    for file_name in ('10015AT0001_S6_L004_R1_001.fastq.gz', '10015AT0001_S6_L004_R2_001.fastq.gz',
+                      '10015AT0001_S6_L005_R1_001.fastq.gz', '10015AT0001_S6_L005_R2_001.fastq.gz'):
         assert join(fastq_dir, '10015AT', '10015AT0001', file_name) in fastqs
 
 
 def test_find_fastqs_with_lane():
     fastqs = util.find_fastqs(fastq_dir, '10015AT', '10015AT0001', lane=4)
-    for file_name in ['10015AT0001_S6_L004_R1_001.fastq.gz', '10015AT0001_S6_L004_R2_001.fastq.gz']:
+    for file_name in ('10015AT0001_S6_L004_R1_001.fastq.gz', '10015AT0001_S6_L004_R2_001.fastq.gz'):
         assert join(fastq_dir, '10015AT', '10015AT0001', file_name) in fastqs
 
 
@@ -60,18 +59,16 @@ def test_same_fs():
 
 
 class TestMoveDir(TestEGCG):
-
-    def _create_test_file(self, f, content=None):
+    @staticmethod
+    def _create_test_file(f, content='This is a test file'):
         with open(f, 'w') as of:
-            if content:
-                of.write(content)
-            else:
-                of.write('This is a test file')
+            of.write(content)
 
-    def _md5(self, f):
+    @staticmethod
+    def _md5(f):
         hash_md5 = hashlib.md5()
-        with open(f, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
+        with open(f, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b''):
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
 
@@ -84,7 +81,7 @@ class TestMoveDir(TestEGCG):
 
         makedirs(join(self.test_dir, 'external'), exist_ok=True)
         self._create_test_file(join(self.test_dir, 'external', 'external.txt'), 'External file')
-        os.symlink(join(self.test_dir, 'external', 'external.txt'), join(self.test_dir, 'from', 'external_renamed.txt'))
+        symlink(join(self.test_dir, 'external', 'external.txt'), join(self.test_dir, 'from', 'external_renamed.txt'))
 
         makedirs(join(self.test_dir, 'exists'), exist_ok=True)
         makedirs(join(self.test_dir, 'exists', 'subdir'), exist_ok=True)

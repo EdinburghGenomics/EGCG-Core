@@ -2,16 +2,11 @@ import os
 import re
 import subprocess
 from time import sleep
-
 from egcg_core.app_logging import logging_default as log_cfg
-from egcg_core.exceptions import EGCGError
+from egcg_core.exceptions import ArchivingError
 
 app_logger = log_cfg.get_logger('archive_management')
 state_re = re.compile('^(.+): \((0x\w+)\)(.+)?')
-
-
-class ArchivingError(EGCGError):
-    pass
 
 
 def _get_stdout(cmd):
@@ -28,8 +23,7 @@ def _get_stdout(cmd):
 
 
 def archive_states(file_path):
-    cmd = 'lfs hsm_state %s' % file_path
-    val = _get_stdout(cmd)
+    val = _get_stdout('lfs hsm_state ' + file_path)
     match = state_re.match(val)
     if match:
         file_name = match.group(1)
@@ -42,7 +36,7 @@ def archive_states(file_path):
         else:
             return []
     else:
-        raise ValueError()
+        raise ArchivingError('Could not hsm_state file %s' % file_path)
 
 
 def is_of_state(state, file_path, known_states=None):
@@ -52,7 +46,7 @@ def is_of_state(state, file_path, known_states=None):
         return state in archive_states(file_path)
 
 
-def is_register_for_archiving(file_path, known_states=None):
+def is_registered_for_archiving(file_path, known_states=None):
     return is_of_state('exists', file_path, known_states)
 
 
@@ -69,33 +63,31 @@ def is_dirty(file_path, known_states=None):
 
 
 def release_file_from_lustre(file_path):
-    # store the states to avoid quering multiple times
-    states = archive_states(file_path)
+    states = archive_states(file_path)  # store the states to avoid querying multiple times
     if is_dirty(file_path, states):
         raise ArchivingError('File %s is in a dirty state' % file_path)
     if not is_archived(file_path, states):
-        raise ArchivingError('Cannot release %s from lustre because it is not archive to tape' % file_path)
+        raise ArchivingError('Cannot release %s from Lustre because it is not archived to tape' % file_path)
+
     if not is_released(file_path, states):
-        cmd = 'lfs hsm_release %s' % file_path
-        val = _get_stdout(cmd)
+        val = _get_stdout('lfs hsm_release ' + file_path)
         if val is not None:
             return is_released(file_path)
     else:
-        app_logger.debug('Trying to release a %s already released from lustre' % file_path)
+        app_logger.debug('Trying to release a %s already released from Lustre', file_path)
         return True
 
 
 def register_for_archiving(file_path, strict=False):
-    if is_register_for_archiving(file_path):
+    if is_registered_for_archiving(file_path):
         return True
-    cmd = 'lfs hsm_archive %s' % file_path
-    val = _get_stdout(cmd)
-    if val is None or not is_register_for_archiving(file_path):
+
+    val = _get_stdout('lfs hsm_archive ' + file_path)
+    if val is None or not is_registered_for_archiving(file_path):
         if strict:
             raise ArchivingError('Registering %s for archiving to tape failed' % file_path)
-        # Registering for archive can sometime take time so give it a second
-        sleep(1)
-        return register_for_archiving(filter, strict=True)
+        sleep(1)  # registering can sometimes take time, so give it a second...
+        return register_for_archiving(file_path, strict=True)  # ... and try again (once only)
 
     return True
 
@@ -104,9 +96,9 @@ def recall_from_tape(file_path):
     states = archive_states(file_path)
     if is_dirty(file_path, states):
         raise ArchivingError('File %s is in a dirty state' % file_path)
+
     if is_archived(file_path, states) and is_released(file_path, states):
-        cmd = 'lfs hsm_restore %s' % file_path
-        val = _get_stdout(cmd)
+        val = _get_stdout('lfs hsm_restore ' + file_path)
         if val is not None:
             return True
 

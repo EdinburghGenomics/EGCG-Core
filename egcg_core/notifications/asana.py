@@ -1,7 +1,6 @@
 import asana
 from cached_property import cached_property
 from os.path import basename
-
 from .notification import Notification
 
 
@@ -25,7 +24,7 @@ class AsanaNotification(Notification):
                 attachments = [attachments]
 
         for attachment in attachments or []:
-            with open(attachment, "rb") as fil:
+            with open(attachment, 'rb') as fil:
                 content = fil.read()
                 self.client.attachments.create_on_task(
                     task_id=self.task['id'],

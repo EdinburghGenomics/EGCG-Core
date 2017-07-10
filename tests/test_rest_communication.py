@@ -1,10 +1,10 @@
-import json
-
 import os
+import json
 import pytest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 from tests import FakeRestResponse, TestEGCG
 from egcg_core import rest_communication
+from egcg_core.util import check_if_nested
 from egcg_core.exceptions import RestCommunicationError
 
 
@@ -22,16 +22,7 @@ test_flat_request_content = {'key1': 'value1', 'key2': 'value2'}
 test_patch_document = {
     '_id': '1337', '_etag': 1234567, 'uid': 'a_unique_id', 'list_to_update': ['this', 'that', 'other']
 }
-def check_if_nested(data):
-    if isinstance(data, dict):
-        for k in data:
-            if type(data[k]) in [list, dict]:
-                return True
-    elif isinstance(data, list):
-        for i in data:
-            if type(i) in [list, dict]:
-                return True
-    return False
+
 
 def fake_request(method, url, **kwargs):
     if 'files' in kwargs and kwargs['files']:
@@ -110,8 +101,7 @@ class TestRestCommunication(TestEGCG):
             FakeRestResponse(content={'data': ['other', 'another'], '_links': {'next': {'href': 'an_endpoint?max_results=101&page=3'}}}),
             FakeRestResponse(content={'data': ['more', 'things'], '_links': {}})
         )
-        patched_req = patch(ppath('_req'), side_effect=docs)
-        with patched_req as mocked_req:
+        with patch(ppath('_req'), side_effect=docs) as mocked_req:
             assert self.comm.get_documents('an_endpoint', all_pages=True, max_results=101) == [
                 'this', 'that', 'other', 'another', 'more', 'things'
             ]
@@ -273,6 +263,7 @@ class TestRestCommunication(TestEGCG):
                 self.comm.baseurl + 'an_endpoint',
                 headers={'Authorization': 'Token ' + hashed_token}
             )
+
 
 def test_default():
     d = rest_communication.default
