@@ -18,10 +18,12 @@ except ImportError:
 _lims = None
 
 
-def connection():
+def connection(new=False, **kwargs):
     global _lims
-    if not _lims:
-        _lims = Lims(**cfg.get('clarity'))
+    if not _lims or new:
+        param = cfg.get('clarity') or {}
+        param.update(kwargs)
+        _lims = Lims(**param)
     return _lims
 
 
