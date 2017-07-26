@@ -83,7 +83,7 @@ def find_run_elements_from_sample(sample_name):
             run_id = p.udf.get('RunID')
             lanes = p.input_per_sample(sample.name)
             for artifact in lanes:
-                lane = artifact.position.split(':')[0]
+                lane = artifact.location[1].split(':')[0]
                 if not artifact.udf.get('Lane Failed?', False):
                     yield run_id, lane
 
