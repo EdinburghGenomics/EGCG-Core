@@ -72,7 +72,7 @@ class TestClarity(TestEGCG):
         assert lims.baseuri == 'a_baseuri/'
 
         # Check caching
-        assert lims == clarity.connection()
+        assert lims is clarity.connection()
 
         # override caching
         assert lims != clarity.connection(new=True)
