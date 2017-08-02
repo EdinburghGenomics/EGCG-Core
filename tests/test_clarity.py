@@ -106,7 +106,7 @@ class TestClarity(TestEGCG):
             assert clarity.find_project_name_from_sample('a_sample') == 'this'
 
 
-    @patched_lims('get_artifacts', [Mock(parent_process=Mock(udf={}, input_per_sample=lambda sample_name: [Mock(position='1:this', udf={})]))])
+    @patched_lims('get_artifacts', [Mock(parent_process=Mock(udf={}, input_per_sample=lambda sample_name: [Mock(location=('container', '1:this'), udf={})]))])
     @patched_clarity('get_sample', FakeEntity('a_sample'))
     def test_find_run_elements_from_sample(self, mocked_get_sample, mocked_get_artifacts):
         assert list(clarity.find_run_elements_from_sample('a_sample')) == [(None, '1')]
