@@ -1,10 +1,10 @@
 Changelog for EGCG-Core
 ===========================
 
-0.8 (unreleased)
-----------------
+0.7.2 (2017-08-03)
+------------------
 
-- Nothing changed yet.
+- Allow Lims cached connection to be overriden
 
 
 0.7.1 (2017-06-08)
