@@ -1,6 +1,6 @@
 import re
 
-from genologics.lims import Lims
+from pyclarity_lims.lims import Lims
 from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.exceptions import EGCGError
