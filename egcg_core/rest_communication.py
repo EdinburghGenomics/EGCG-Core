@@ -149,10 +149,12 @@ class Communicator(AppLogger):
         content = self.get_content(endpoint, paginate, quiet, **query_args)
         elements = content['data']
 
-        if all_pages and 'next' in content['_links']:
-            next_query = self._parse_query_string(content['_links']['next']['href'], requires=('max_results', 'page'))
-            query_args.update(next_query)
-            elements.extend(self.get_documents(endpoint, all_pages=True, quiet=quiet, **query_args))
+        if all_pages:
+            while 'next' in content['_links']:
+                next_query = self._parse_query_string(content['_links']['next']['href'], requires=('max_results', 'page'))
+                query_args.update(next_query)
+                content = self.get_content(endpoint, paginate, quiet, **query_args)
+                elements.extend(content['data'])
 
         return elements
 

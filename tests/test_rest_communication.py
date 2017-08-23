@@ -110,8 +110,7 @@ class TestRestCommunication(TestEGCG):
             FakeRestResponse(content={'data': ['other', 'another'], '_links': {'next': {'href': 'an_endpoint?max_results=101&page=3'}}}),
             FakeRestResponse(content={'data': ['more', 'things'], '_links': {}})
         )
-        patched_req = patch(ppath('_req'), side_effect=docs)
-        with patched_req as mocked_req:
+        with patch(ppath('_req'), side_effect=docs) as mocked_req:
             assert self.comm.get_documents('an_endpoint', all_pages=True, max_results=101) == [
                 'this', 'that', 'other', 'another', 'more', 'things'
             ]
@@ -123,6 +122,16 @@ class TestRestCommunication(TestEGCG):
                 {'params': {'page': '2', 'max_results': '101'}, 'quiet': False},
                 {'params': {'page': '3', 'max_results': '101'}, 'quiet': False}
             ]
+        docs = [
+            FakeRestResponse(content={'data': ['data%s' % d], '_links': {'next': {'href': 'an_endpoint?max_results=101&page=%s' % d}}})
+            for d in range(1,1200)
+        ]
+        docs.append(FakeRestResponse(content={'data': ['last piece'], '_links': {}}))
+
+        with patch(ppath('_req'), side_effect=docs) as mocked_req:
+            ret = self.comm.get_documents('an_endpoint', all_pages=True, max_results=101)
+            assert len(ret) == 1200
+
 
     @patched_response
     def test_get_content(self, mocked_response):
