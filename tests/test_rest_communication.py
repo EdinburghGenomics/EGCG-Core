@@ -124,13 +124,13 @@ class TestRestCommunication(TestEGCG):
             ]
         docs = [
             FakeRestResponse(content={'data': ['data%s' % d], '_links': {'next': {'href': 'an_endpoint?max_results=101&page=%s' % d}}})
-            for d in range(2,1200)
+            for d in range(1,1200)
         ]
         docs.append(FakeRestResponse(content={'data': ['last piece'], '_links': {}}))
 
         with patch(ppath('_req'), side_effect=docs) as mocked_req:
             ret = self.comm.get_documents('an_endpoint', all_pages=True, max_results=101)
-            print(ret)
+            assert len(ret) == 1200
 
 
     @patched_response
