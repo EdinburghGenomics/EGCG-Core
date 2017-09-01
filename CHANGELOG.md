@@ -1,10 +1,10 @@
 Changelog for EGCG-Core
 ===========================
 
-0.8 (unreleased)
+0.7.3 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Add new option to rest_communication.post_entry to submit payload without json
 
 
 0.7.2 (2017-08-03)
