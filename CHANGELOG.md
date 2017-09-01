@@ -1,9 +1,10 @@
 Changelog for EGCG-Core
 ===========================
 
-0.7.3 (unreleased)
-----------------
+0.7.3 (2017-09-01)
+------------------
 
+- Fixed RecursionError when calling `get_documents` on large collections with `all_pages=True`
 - Add new option to rest_communication.post_entry to submit payload without json
 
 
