@@ -180,6 +180,24 @@ class TestRestCommunication(TestEGCG):
             files={'f': (file_path, b'test content', 'text/plain')}
         )
 
+        self.comm.post_entry(test_endpoint, payload=test_flat_request_content, use_data=True)
+        mocked_response.assert_called_with(
+            'POST',
+            rest_url(test_endpoint),
+            auth=auth,
+            data=test_flat_request_content,
+            files=None
+        )
+
+        self.comm.post_entry(test_endpoint, payload=test_request_content_plus_files, use_data=True)
+        mocked_response.assert_called_with(
+            'POST',
+            rest_url(test_endpoint),
+            auth=auth,
+            data=test_flat_request_content,
+            files={'f': (file_path, b'test content', 'text/plain')}
+        )
+
     @patched_response
     def test_put_entry(self, mocked_response):
         self.comm.put_entry(test_endpoint, 'an_element_id', payload=test_nested_request_content)

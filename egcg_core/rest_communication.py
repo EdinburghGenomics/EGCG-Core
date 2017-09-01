@@ -165,9 +165,12 @@ class Communicator(AppLogger):
         else:
             self.warning('No document found in endpoint %s for %s', endpoint, query_args)
 
-    def post_entry(self, endpoint, payload):
+    def post_entry(self, endpoint, payload, use_data=False):
         files, payload = self._detect_files_in_json(payload)
-        return self._req('POST', self.api_url(endpoint), json=payload, files=files)
+        if use_data:
+            return self._req('POST', self.api_url(endpoint), data=payload, files=files)
+        else:
+            return self._req('POST', self.api_url(endpoint), json=payload, files=files)
 
     def put_entry(self, endpoint, element_id, payload):
         files, payload = self._detect_files_in_json(payload)
