@@ -23,7 +23,7 @@ class ClusterExecutor(AppLogger):
 
     def __init__(self, *cmds, prelim_cmds=None, **cluster_config):
         """
-        :param list cmds: Full path to a job submission script
+        :param cmds: Full path to a job submission script
         """
         self.interval = cfg.query('executor', 'join_interval', ret_default=30)
         self.job_id = None

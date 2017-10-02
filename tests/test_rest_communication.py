@@ -114,6 +114,21 @@ class TestRestCommunication(TestEGCG):
                 {'params': {'page': '3', 'max_results': '101'}, 'quiet': False}
             ]
 
+        docs = [
+            FakeRestResponse(
+                content={
+                    'data': ['data%s' % d],
+                    '_links': {'next': {'href': 'an_endpoint?max_results=101&page=%s' % d}}
+                }
+            )
+            for d in range(1, 1200)
+        ]
+        docs.append(FakeRestResponse(content={'data': ['last piece'], '_links': {}}))
+
+        with patch(ppath('_req'), side_effect=docs):
+            ret = self.comm.get_documents('an_endpoint', all_pages=True, max_results=101)
+            assert len(ret) == 1200
+
     @patched_response
     def test_get_content(self, mocked_response):
         data = self.comm.get_content(test_endpoint, max_results=100, where={'a_field': 'thing'})
@@ -153,6 +168,24 @@ class TestRestCommunication(TestEGCG):
         test_request_content_plus_files = dict(test_flat_request_content)
         test_request_content_plus_files['f'] = ('file', file_path)
         self.comm.post_entry(test_endpoint, payload=test_request_content_plus_files)
+        mocked_response.assert_called_with(
+            'POST',
+            rest_url(test_endpoint),
+            auth=auth,
+            data=test_flat_request_content,
+            files={'f': (file_path, b'test content', 'text/plain')}
+        )
+
+        self.comm.post_entry(test_endpoint, payload=test_flat_request_content, use_data=True)
+        mocked_response.assert_called_with(
+            'POST',
+            rest_url(test_endpoint),
+            auth=auth,
+            data=test_flat_request_content,
+            files=None
+        )
+
+        self.comm.post_entry(test_endpoint, payload=test_request_content_plus_files, use_data=True)
         mocked_response.assert_called_with(
             'POST',
             rest_url(test_endpoint),

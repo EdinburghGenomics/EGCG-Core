@@ -1,6 +1,6 @@
+import yaml
 from os import getenv
 from os.path import isfile
-import yaml
 from .exceptions import ConfigError
 
 

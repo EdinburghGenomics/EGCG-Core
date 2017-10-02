@@ -7,6 +7,19 @@ Changelog for EGCG-Core
 - Nothing changed yet.
 
 
+0.7.3 (2017-09-01)
+------------------
+
+- Fixed RecursionError when calling `get_documents` on large collections with `all_pages=True`
+- Add new option to rest_communication.post_entry to submit payload without json
+
+
+0.7.2 (2017-08-03)
+------------------
+
+- Allow Lims cached connection to be overriden
+
+
 0.7.1 (2017-06-08)
 ------------------
 

@@ -1,5 +1,5 @@
 import re
-from genologics.lims import Lims
+from pyclarity_lims.lims import Lims
 from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.exceptions import EGCGError
@@ -18,10 +18,12 @@ except ImportError:
 _lims = None
 
 
-def connection():
+def connection(new=False, **kwargs):
     global _lims
-    if not _lims:
-        _lims = Lims(**cfg.get('clarity'))
+    if not _lims or new:
+        param = cfg.get('clarity') or {}
+        param.update(kwargs)
+        _lims = Lims(**param)
     return _lims
 
 
@@ -81,7 +83,7 @@ def find_run_elements_from_sample(sample_name):
             run_id = p.udf.get('RunID')
             lanes = p.input_per_sample(sample.name)
             for artifact in lanes:
-                lane = artifact.position.split(':')[0]
+                lane = artifact.location[1].split(':')[0]
                 if not artifact.udf.get('Lane Failed?', False):
                     yield run_id, lane
 

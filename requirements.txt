@@ -1,6 +1,7 @@
 pytest>=2.7.2
+requests==2.14.2
 PyYAML>=3.11
-genologics>=0.3.2
+pyclarity_lims>=0.4
 jinja2==2.8
-asana==0.6.2
+asana==0.6.5
 cached_property
