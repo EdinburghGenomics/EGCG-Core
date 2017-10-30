@@ -6,3 +6,4 @@ def test_constants_uniqueness():
     uniq_constants = set()
     for constant in constants:
         assert constant not in uniq_constants
+        uniq_constants.add(constant)
