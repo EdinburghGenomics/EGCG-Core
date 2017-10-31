@@ -1,10 +1,10 @@
 Changelog for EGCG-Core
 ===========================
 
-0.8 (unreleased)
+0.7.4 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Bugfix in archive management.
 
 
 0.7.3 (2017-09-01)

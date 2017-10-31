@@ -80,6 +80,16 @@ class TestArchiveManagement(TestEGCG):
             assert get_stdout.call_count == 3
             assert get_stdout.call_args_list[1][0] == ('lfs hsm_archive testfile',)
 
+        with patch('egcg_core.archive_management._get_stdout',
+                   side_effect=[
+                       'testfile: (0x00000001)', '', 'testfile: (0x00000001)',
+                       'testfile: (0x00000001)', '', 'testfile: (0x00000001)',
+                   ]) as get_stdout:
+            self.assertRaises(ArchivingError, register_for_archiving, 'testfile', False)
+            assert get_stdout.call_count == 6
+            assert get_stdout.call_args_list[1][0] == ('lfs hsm_archive testfile',)
+            assert get_stdout.call_args_list[4][0] == ('lfs hsm_archive testfile',)
+
     def test_recall_from_tape(self):
         with patch('egcg_core.archive_management._get_stdout',
                    side_effect=[

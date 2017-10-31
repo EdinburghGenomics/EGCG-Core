@@ -95,7 +95,7 @@ def register_for_archiving(file_path, strict=False):
             raise ArchivingError('Registering %s for archiving to tape failed' % file_path)
         # Registering for archive can sometime take time so give it a second
         sleep(1)
-        return register_for_archiving(filter, strict=True)
+        return register_for_archiving(file_path, strict=True)
 
     return True
 
