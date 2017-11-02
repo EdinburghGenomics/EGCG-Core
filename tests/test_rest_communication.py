@@ -25,7 +25,7 @@ test_patch_document = {
 
 
 def fake_request(method, url, **kwargs):
-    if 'files' in kwargs and kwargs['files']:
+    if kwargs.get('files'):
         if 'json' in kwargs:
             raise Exception
         if 'data' in kwargs and check_if_nested(kwargs['data']):
@@ -51,45 +51,44 @@ class TestRestCommunication(TestEGCG):
 
     def test_parse_query_string(self):
         query_string = 'http://a_url?this=that&other={"another":"more"}&things=1'
-        no_query_string = 'http://a_url'
         dodgy_query_string = 'http://a_url?this=that?other=another'
 
-        p = self.comm._parse_query_string
-
-        assert p(query_string) == {'this': 'that', 'other': '{"another":"more"}', 'things': '1'}
-        assert p(no_query_string) == {}
+        assert self.comm._parse_query_string('http://a_url') == {}
+        assert self.comm._parse_query_string(query_string) == {
+            'this': 'that', 'other': '{"another":"more"}', 'things': '1'
+        }
 
         with pytest.raises(RestCommunicationError) as e:
-            p(dodgy_query_string)
+            self.comm._parse_query_string(dodgy_query_string)
             assert str(e) == 'Bad query string: ' + dodgy_query_string
 
         with pytest.raises(RestCommunicationError) as e2:
-            p(query_string, requires=['thangs'])
+            self.comm._parse_query_string(query_string, requires=['thangs'])
             assert str(e2) == query_string + " did not contain all required fields: ['thangs']"
 
     def test_detect_files_in_json(self):
-        json_dict = {'k1': 'v1', 'k2': 'v2'}
-        files, json_dict1 = self.comm._detect_files_in_json(json_dict)
+        json_no_files = {'k1': 'v1', 'k2': 'v2'}
+        obs_files, obs_json = self.comm._detect_files_in_json(json_no_files)
         file_path = os.path.join(self.assets_path, 'test_to_upload.txt')
-        assert files is None
-        assert json_dict1 == json_dict
-        json_dict = {'k1': 'v1', 'k2': ('file', file_path)}
-        files, json_dict1 = self.comm._detect_files_in_json(json_dict)
-        assert files == {'k2': (file_path, b'test content', 'text/plain')}
-        assert json_dict1 == {'k1': 'v1'}
+        assert obs_files is None
+        assert obs_json == json_no_files
 
-        json_list = [json_dict, json_dict]
-        files_list, json_list1 = self.comm._detect_files_in_json(json_list)
-        assert files_list == [
+        json_with_files = {'k1': 'v1', 'k2': ('file', file_path)}
+        obs_files, obs_json = self.comm._detect_files_in_json(json_with_files)
+        assert obs_files == {'k2': (file_path, b'test content', 'text/plain')}
+        assert obs_json == {'k1': 'v1'}
+
+        json_list = [json_with_files, json_with_files]
+        obs_files, obs_json = self.comm._detect_files_in_json(json_list)
+        assert obs_files == [
             {'k2': (file_path, b'test content', 'text/plain')},
             {'k2': (file_path, b'test content', 'text/plain')}
         ]
-        assert json_list1 == [{'k1': 'v1'}, {'k1': 'v1'}]
+        assert obs_json == [{'k1': 'v1'}, {'k1': 'v1'}]
 
     @patched_response
     def test_req(self, mocked_response):
         json_content = ['some', {'test': 'json'}]
-
         response = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
         assert response.status_code == 200
         assert json.loads(response.content.decode('utf-8')) == response.json() == test_nested_request_content
@@ -136,11 +135,7 @@ class TestRestCommunication(TestEGCG):
         assert mocked_response.call_args[0][1].startswith(rest_url(test_endpoint))
         assert mocked_response.call_args[1] == {
             'auth': ('a_user', 'a_password'),
-            'params': {
-                'max_results': 100,
-                'where': '{"a_field": "thing"}',
-                'page': 1
-            }
+            'params': {'max_results': 100, 'where': '{"a_field": "thing"}', 'page': 1}
         }
 
     def test_get_documents(self):
@@ -243,8 +238,8 @@ class TestRestCommunication(TestEGCG):
     @patched_response
     def test_auth_token_and_if_match(self, mocked_response, mocked_get_doc):
         self.comm._auth = 'an_auth_token'
-
         self.comm.patch_entry(test_endpoint, {'this': 'that'}, 'uid', 'a_unique_id')
+        mocked_get_doc.assert_called_with(test_endpoint, where={'uid': 'a_unique_id'})
         mocked_response.assert_called_with(
             'PATCH',
             rest_url(test_endpoint) + '1337',

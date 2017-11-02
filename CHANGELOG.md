@@ -7,6 +7,13 @@ Changelog for EGCG-Core
 - Nothing changed yet.
 
 
+0.7.4 (2017-10-31)
+------------------
+
+- Bugfix in archive management.
+- Add Picard and mapping stats constants
+
+
 0.7.3 (2017-09-01)
 ------------------
 

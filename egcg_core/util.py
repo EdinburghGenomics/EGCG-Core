@@ -8,6 +8,7 @@ app_logger = log_cfg.get_logger('util')
 
 
 def check_if_nested(data):
+    """Check whether a data structure contains lists/dicts."""
     if isinstance(data, dict):
         for k in data:
             if type(data[k]) in (list, dict):

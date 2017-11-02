@@ -52,8 +52,8 @@ class Communicator(AppLogger):
                 )
         if files:
             # remove the extracted files from the original json
-            for k in files:
-                json_dict.pop(k)
+            for f in files:
+                json_dict.pop(f)
             return files
         return None
 
@@ -106,13 +106,12 @@ class Communicator(AppLogger):
         if type(self.auth) is tuple:
             kwargs['auth'] = self.auth
         elif type(self.auth) is str:
-            # noinspection PyTypeChecker
-            kwargs['headers'] = dict(kwargs.get('headers', {}), Authorization='Token ' + self.auth)
+            kwargs['headers'] = dict(kwargs.get('headers', {}), Authorization='Token %s' % self.auth)
 
-        # can't upload json and files at the same time so move the json parameter to data
-        # data can't upload complex structure that would require json encoding.
-        # This mean we can't upload data with sub list or sub dict at the same time as files
-        if 'files' in kwargs and kwargs['files'] and 'json' in kwargs and kwargs['json']:
+        # can't upload json and files at the same time, so we need to move the json parameter to data
+        # data can't upload complex structures that would require json encoding.
+        # this means we can't upload data with nested lists/dicts at the same time as files
+        if kwargs.get('files') and kwargs.get('json'):
             if check_if_nested(kwargs.get('json')):
                 raise RestCommunicationError('Cannot upload files and nested json in one query')
             kwargs['data'] = kwargs.pop('json')
