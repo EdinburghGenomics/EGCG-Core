@@ -1,12 +1,9 @@
 import logging
-
-import os
-
 from .notification import Notification
 
 
 class LogNotification(Notification):
-    """Logs via log_cfg, and also to a notification file with the format'[date time][self.name] msg'"""
+    """Logs via log_cfg, and also to a notification file with the format '[date time][self.name] msg'"""
 
     def __init__(self, name, log_file):
         super().__init__(name)

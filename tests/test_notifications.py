@@ -1,16 +1,13 @@
-from email.mime.application import MIMEApplication
-from email.mime.multipart import MIMEMultipart
-from email.utils import formatdate
-from os.path import join, abspath, dirname
-
-import os
 import pytest
 from unittest.mock import Mock, patch
+from os import remove
+from os.path import join, abspath, dirname
 from smtplib import SMTPException
 from email.mime.text import MIMEText
-from egcg_core.notifications import NotificationCentre, EmailNotification, send_email, AsanaNotification
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from egcg_core import notifications as n
 from egcg_core.exceptions import EGCGError
-from egcg_core.notifications.log import LogNotification
 from tests import TestEGCG
 
 
@@ -33,7 +30,7 @@ class FakeSMTP(Mock):
 
 class TestNotificationCentre(TestEGCG):
     def setUp(self):
-        self.notification_centre = NotificationCentre('a_name')
+        self.notification_centre = n.NotificationCentre('a_name')
 
     def test_config_init(self):
         e = self.notification_centre.subscribers['email']
@@ -57,10 +54,10 @@ class TestNotificationCentre(TestEGCG):
 class TestLogNotification(TestEGCG):
     def setUp(self):
         self.notification_log = join(self.assets_path, 'LogNotification.log')
-        self.ntf = LogNotification('log_notification', self.notification_log)
+        self.ntf = n.LogNotification('log_notification', self.notification_log)
 
     def tearDown(self):
-        os.remove(self.notification_log)
+        remove(self.notification_log)
 
     def test_notify(self):
         self.ntf.notify('message')
@@ -84,7 +81,7 @@ class TestLogNotification(TestEGCG):
 
 class TestEmailNotification(TestEGCG):
     def setUp(self):
-        self.ntf = EmailNotification(
+        self.ntf = n.EmailNotification(
             'a_subject', 'localhost', 1337, 'a_sender', ['some', 'recipients'], strict=True,
             email_template=join(dirname(dirname(abspath(__file__))), 'etc', 'email_notification.html')
         )
@@ -169,7 +166,7 @@ class TestEmailNotification(TestEGCG):
 
 @patch('egcg_core.notifications.EmailNotification._try_send')
 def test_send_email(mocked_send):
-    send_email('a message', 'localhost', 1337, 'a_sender', ['some', 'recipients'], 'a subject')
+    n.send_email('a message', 'localhost', 1337, 'a_sender', ['some', 'recipients'], 'a subject')
     exp = MIMEText('a message')
     exp['Subject'] = 'a subject'
     exp['From'] = 'a_sender'
@@ -179,7 +176,7 @@ def test_send_email(mocked_send):
 
 class TestAsanaNotification(TestEGCG):
     def setUp(self):
-        self.ntf = AsanaNotification(
+        self.ntf = n.AsanaNotification(
             'another_name',
             workspace_id=1337,
             project_id=1338,
@@ -202,7 +199,7 @@ class TestAsanaNotification(TestEGCG):
         self.ntf.client.tasks.add_comment.assert_called_with(1337, text='a comment')
 
     def _test_add_comment_with_attachments(self, attachments):
-        self.ntf.notify('a comment', attachments=[join(self.assets_path, 'test_to_upload.txt')])
+        self.ntf.notify('a comment', attachments=attachments)
         self.ntf.client.tasks.add_comment.assert_called_with(1337, text='a comment')
         self.ntf.client.attachments.create_on_task.assert_called_with(
             file_content=b'test content',
@@ -213,7 +210,7 @@ class TestAsanaNotification(TestEGCG):
     def test_add_comment_with_attachments(self):
         self._test_add_comment_with_attachments([join(self.assets_path, 'test_to_upload.txt')])
 
-    def test_add_comment_with_attachment(self):
+    def test_add_comment_with_one_attachment(self):
         self._test_add_comment_with_attachments(join(self.assets_path, 'test_to_upload.txt'))
 
     def test_get_entity(self):

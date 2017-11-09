@@ -1,7 +1,6 @@
-import mimetypes
-
-import requests
 import json
+import mimetypes
+import requests
 from urllib.parse import urljoin
 from egcg_core.config import cfg
 from egcg_core.app_logging import AppLogger
@@ -30,18 +29,17 @@ class Communicator(AppLogger):
         :param file_name: path to the file
         :return: file content
         """
-        with open(file_name, 'rb') as open_f:
-            fc = open_f.read()
+        with open(file_name, 'rb') as f:
+            fc = f.read()
         return fc
 
     @staticmethod
     def _extract_files(json_dict):
         """
-        This method take a json dict and will search all the values for a tuple where the first element is "file".
-        It extract the value, read the content of the file and create another tuple ready to be used by requests
-        This method will modify the original json_dict and remove the file entry from it.
-        :param json_dict: The json dictionary to search
-        :return: a dict where the keys are the field to update and the value are tuple with (filename, file content, file MIME type)
+        Take a json dict and search all values for a tuple['file',<file_path>]. Extract file_path, read its content and
+        create another tuple ready to be used by requests. Also modify the original json input to remove the file entry.
+        :param dict json_dict:
+        :return: a dict of: {field to update: (filename, file content, file MIME type)}
         """
         files = {}
         for k in json_dict:
@@ -53,9 +51,9 @@ class Communicator(AppLogger):
                     mimetypes.guess_type(json_dict[k][1])[0]         # file mime type
                 )
         if files:
-            # remove the extracted files to the original json
-            for k in files:
-                json_dict.pop(k)
+            # remove the extracted files from the original json
+            for f in files:
+                json_dict.pop(f)
             return files
         return None
 
@@ -106,15 +104,14 @@ class Communicator(AppLogger):
 
     def _req(self, method, url, quiet=False, **kwargs):
         if type(self.auth) is tuple:
-            kwargs.update(auth=self.auth)
+            kwargs['auth'] = self.auth
         elif type(self.auth) is str:
-            # noinspection PyTypeChecker
-            kwargs['headers'] = dict(kwargs.get('headers', {}), Authorization='Token ' + self.auth)
+            kwargs['headers'] = dict(kwargs.get('headers', {}), Authorization='Token %s' % self.auth)
 
-        # can't upload json and files at the same time so move the json parameter to data
-        # data can't upload complex structure that would require json encoding.
-        # This mean we can't upload data with sub list or sub dict at the same time as files
-        if 'files' in kwargs and kwargs['files'] and 'json' in kwargs and kwargs['json']:
+        # can't upload json and files at the same time, so we need to move the json parameter to data
+        # data can't upload complex structures that would require json encoding.
+        # this means we can't upload data with nested lists/dicts at the same time as files
+        if kwargs.get('files') and kwargs.get('json'):
             if check_if_nested(kwargs.get('json')):
                 raise RestCommunicationError('Cannot upload files and nested json in one query')
             kwargs['data'] = kwargs.pop('json')
@@ -138,10 +135,9 @@ class Communicator(AppLogger):
 
     def get_content(self, endpoint, paginate=True, quiet=False, **query_args):
         if paginate:
-            query_args.update(
-                max_results=query_args.pop('max_results', 100),  # default to page size of 100
-                page=query_args.pop('page', 1)
-            )
+            query_args['max_results'] = query_args.pop('max_results', 100)  # default to page size of 100
+            query_args['page'] = query_args.pop('page', 1)
+
         url = self.api_url(endpoint)
         return self._req('GET', url, quiet=quiet, params=self.serialise(query_args)).json()
 

@@ -12,3 +12,7 @@ class RestCommunicationError(EGCGError):
 
 class LimsCommunicationError(EGCGError):
     pass
+
+
+class ArchivingError(EGCGError):
+    pass

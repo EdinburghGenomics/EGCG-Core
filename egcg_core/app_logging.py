@@ -1,10 +1,8 @@
-from sys import stdout
 import logging
 import logging.config
 import logging.handlers
-
+from sys import stdout
 from cached_property import cached_property
-
 from egcg_core.config import cfg
 
 
@@ -127,4 +125,3 @@ class AppLogger:
     @cached_property
     def _logger(self):
         return self.log_cfg.get_logger(self.__class__.__name__)
-
