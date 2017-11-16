@@ -49,13 +49,24 @@ class EmailSender(AppLogger):
 
     def _build_email(self, **kwargs):
         """
-        Create a MIMEMultipart email which can contain:
-        MIMEText formated from plain text of Jinja templated html.
+        Create a MIMEText or a MIMEMultipart email which can contain:
+        MIMEText formatted from plain text of Jinja templated html.
         MIMEApplication containing attachments
-        :param str body: The main body of the email to send
+        :param dict kwargs: parameters used to create the email.
+
+        _build_email has two modes: plain text or html email
+        the following keyword args are useable for both:
+          - email_subject: (str) override the EmailSender subject
+          - email_sender: (str) override the EmailSender sender
+          - email_recipients: (list) override the EmailSender recipients
+          - attachments: list of file path to attach to the email
+          in plain text mode, text_message (str) is required and contains the plain text to send in the email.
+          in html mode email_template (str) can be user to override the EmailSender email_template
+          All keyword args (including the one mentioned above) are passed to the Jinja template.
         """
-        if self.email_template:
-            content = jinja2.Template(open(self.email_template).read())
+        email_template = kwargs.get('email_template', self.email_template)
+        if email_template:
+            content = jinja2.Template(open(email_template).read())
             text = MIMEText(content.render(**kwargs), 'html')
         elif 'text_message' in kwargs:
             text = MIMEText(kwargs.get('text_message'))
@@ -77,9 +88,9 @@ class EmailSender(AppLogger):
         else:
             msg = text
 
-        msg['Subject'] = self.subject
-        msg['From'] = self.sender
-        msg['To'] = COMMASPACE.join(self.recipients)
+        msg['Subject'] = kwargs.get('email_subject', self.subject)
+        msg['From'] = kwargs.get('email_sender', self.sender)
+        msg['To'] = COMMASPACE.join(kwargs.get('email_recipients', self.recipients))
         return msg
 
     def _connect_and_send(self, msg):
