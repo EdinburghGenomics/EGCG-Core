@@ -183,6 +183,12 @@ class TestEmailNotification(TestEGCG):
         self.ntf2.notify('a message')
         mock_send_email.assert_called_once_with(title='a_subject', body='a&nbspmessage', attachments=None)
 
+    @patch.object(EmailSender, 'send_email', side_effect=EGCGError)
+    def test_notify_fail(self, mock_send_email):
+        with pytest.raises(EGCGError) as excinfo:
+            self.ntf.notify('a message')
+        assert 'Failed to send message: a message' in str(excinfo)
+
 
 @patch('egcg_core.notifications.email.EmailSender._try_send')
 def test_send_email(mocked_send):
