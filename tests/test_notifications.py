@@ -8,6 +8,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from egcg_core import notifications as n
 from egcg_core.exceptions import EGCGError
+from egcg_core.notifications.email import EmailSender
 from tests import TestEGCG
 
 
@@ -163,6 +164,24 @@ class TestEmailSender(TestEGCG):
     def test_build_email_attachment(self):
         attachment = join(self.assets_path, 'test_to_upload.txt')
         self._test_build_email_attachments(attachment)
+
+
+class TestEmailNotification(TestEGCG):
+    def setUp(self):
+        self.ntf = n.EmailNotification('a_subject', 'localhost', 1337, 'a_sender', ['some', 'recipients'], strict=True)
+        self.ntf2 = n.EmailNotification(
+            'a_subject', 'localhost', 1337, 'a_sender', ['some', 'recipients'], strict=True,
+            email_template=join(dirname(dirname(abspath(__file__))), 'etc', 'email_notification.html')
+        )
+
+    @patch.object(EmailSender, 'send_email')
+    def test_notify(self, mock_send_email):
+        self.ntf.notify('a message')
+        mock_send_email.assert_called_once_with(text_message='a message', attachments=None)
+
+        mock_send_email.reset_mock()
+        self.ntf2.notify('a message')
+        mock_send_email.assert_called_once_with(title='a_subject', body='a&nbspmessage', attachments=None)
 
 
 @patch('egcg_core.notifications.email.EmailSender._try_send')

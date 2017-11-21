@@ -111,9 +111,9 @@ class EmailNotification(Notification):
     def notify(self, msg, attachments=None):
         try:
             if self.email_template:
-                self.email_sender.send_email(body=self._prepare_string(msg), attachments=attachment)
+                self.email_sender.send_email(title=self.name, body=self._prepare_string(msg), attachments=attachments)
             else:
-                self.email_sender.send_email(body=msg, attachments=attachments)
+                self.email_sender.send_email(text_message=msg, attachments=attachments)
         except EGCGError:
             err_msg = 'Failed to send message: ' + str(msg)
             if self.strict:
