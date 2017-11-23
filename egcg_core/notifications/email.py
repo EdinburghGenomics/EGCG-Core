@@ -1,3 +1,4 @@
+import warnings
 import jinja2
 import smtplib
 from email.mime.text import MIMEText
@@ -128,7 +129,17 @@ class EmailNotification(Notification):
         return msg
 
 
-def send_email(msg, mailhost, port, sender, recipients, subject, attachments=None):
+def send_email(msg, mailhost, port, sender, recipients, subject, email_template=None, attachments=None, **kwargs):
+    warnings.warn("deprecated use send_plain_text_email or send_html_email instead", DeprecationWarning)
+    if msg and not email_template:
+        send_plain_text_email(msg, mailhost, port, sender, recipients, subject, attachments)
+    elif email_template and not msg:
+        send_html_email(mailhost, port, sender, recipients, subject, email_template, attachments, **kwargs)
+    else:
+        send_html_email(mailhost, port, sender, recipients, subject, email_template, attachments, msg=msg, **kwargs)
+
+
+def send_plain_text_email(msg, mailhost, port, sender, recipients, subject, attachments=None):
     EmailSender(
         subject,
         mailhost,
@@ -136,6 +147,7 @@ def send_email(msg, mailhost, port, sender, recipients, subject, attachments=Non
         sender,
         recipients,
     ).send_email(text_message=msg, attachments=attachments)
+
 
 def send_html_email(mailhost, port, sender, recipients, subject, email_template, attachments=None, **kwargs):
     EmailSender(
@@ -146,4 +158,3 @@ def send_html_email(mailhost, port, sender, recipients, subject, email_template,
         recipients,
         email_template=email_template
     ).send_email(attachments=attachments, **kwargs)
-
