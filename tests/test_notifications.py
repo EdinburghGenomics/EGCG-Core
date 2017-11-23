@@ -191,8 +191,8 @@ class TestEmailNotification(TestEGCG):
 
 
 @patch('egcg_core.notifications.email.EmailSender._try_send')
-def test_send_email(mocked_send):
-    n.send_email('a message', 'localhost', 1337, 'a_sender', ['some', 'recipients'], 'a subject')
+def test_send_plain_text_email(mocked_send):
+    n.send_plain_text_email('a message', 'localhost', 1337, 'a_sender', ['some', 'recipients'], 'a subject')
     exp = MIMEText('a message')
     exp['Subject'] = 'a subject'
     exp['From'] = 'a_sender'
