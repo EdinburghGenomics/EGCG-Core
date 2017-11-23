@@ -1,10 +1,11 @@
 Changelog for EGCG-Core
 ===========================
 
-0.8 (unreleased)
-----------------
+0.7.5 (2017-11-23)
+------------------
 
-- Nothing changed yet.
+- update constants: Remove expected yield and add more explicit required yield/yieldQ30/coverage
+- code refactor 
 
 
 0.7.4 (2017-10-31)
