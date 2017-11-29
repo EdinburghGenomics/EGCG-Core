@@ -1,3 +1,4 @@
+import warnings
 import jinja2
 import smtplib
 from email.mime.text import MIMEText
@@ -6,31 +7,28 @@ from email.mime.multipart import MIMEMultipart
 from email.utils import COMMASPACE
 from time import sleep
 from os.path import basename
+
+from egcg_core.app_logging import AppLogger
 from egcg_core.exceptions import EGCGError
 from .notification import Notification
 
 
-class EmailNotification(Notification):
-    translation_map = {' ': '&nbsp', '\n': '<br/>'}
+class EmailSender(AppLogger):
 
-    def __init__(self, name, mailhost, port, sender, recipients, strict=False, email_template=None):
-        super().__init__(name)
+    def __init__(self, subject, mailhost, port, sender, recipients, email_template=None):
+        self.subject = subject
         self.mailhost = mailhost
         self.port = port
         self.sender = sender
         self.recipients = recipients
         self.email_template = email_template
-        self.strict = strict
 
-    def notify(self, msg, attachments=None):
-        email = self.build_email(msg, attachments)
+    def send_email(self, **kwargs):
+        email = self._build_email(**kwargs)
         success = self._try_send(email)
         if not success:
-            err_msg = 'Failed to send message: ' + str(msg)
-            if self.strict:
-                raise EGCGError(err_msg)
-            else:
-                self.critical(err_msg)
+            err_msg = 'Failed to send message with following args: ' + str(kwargs)
+            raise EGCGError(err_msg)
 
     def _try_send(self, msg, retries=3):
         """
@@ -50,46 +48,50 @@ class EmailNotification(Notification):
 
             return False
 
-    def build_email(self, body, attachments=None):
+    def _build_email(self, **kwargs):
         """
-        Create a MIMEMultipart email which can contain:
-        MIMEText formated from plain text of Jinja templated html.
+        Create a MIMEText or a MIMEMultipart email which can contain:
+        MIMEText formatted from plain text of Jinja templated html.
         MIMEApplication containing attachments
-        :param str body: The main body of the email to send
-        :param list attachments: Paths of files to attach to the message
+        :param dict kwargs: parameters used to create the email.
+
+        _build_email has two modes: plain text or html email
+        the following keyword args are useable for both:
+          - email_subject: (str) override the EmailSender subject
+          - email_sender: (str) override the EmailSender sender
+          - email_recipients: (list) override the EmailSender recipients
+          - attachments: list of file path to attach to the email
+          in plain text mode, text_message (str) is required and contains the plain text to send in the email.
+          in html mode email_template (str) can be user to override the EmailSender email_template
+          All keyword args (including the one mentioned above) are passed to the Jinja template.
         """
-
-        if self.email_template:
-            content = jinja2.Template(open(self.email_template).read())
-            text = MIMEText(content.render(title=self.name, body=self._prepare_string(body)), 'html')
+        email_template = kwargs.get('email_template', self.email_template)
+        if email_template:
+            content = jinja2.Template(open(email_template).read())
+            text = MIMEText(content.render(**kwargs), 'html')
+        elif 'text_message' in kwargs:
+            text = MIMEText(kwargs.get('text_message'))
         else:
-            text = MIMEText(body)
-
-        if attachments:
-            if isinstance(attachments, str):
-                attachments = [attachments]
-
+            raise EGCGError('EmailSender needs either a text_message or an email template')
+        if 'attachments' in kwargs and kwargs['attachments']:
+            if isinstance(kwargs['attachments'], str):
+                kwargs['attachments'] = [kwargs['attachments']]
             msg = MIMEMultipart()
             msg.attach(text)
-
-            for a in attachments:
-                with open(a, 'rb') as f:
-                    part = MIMEApplication(f.read(), Name=basename(a))
-                    part['Content-Disposition'] = 'attachment; filename="%s"' % basename(a)
+            for f in kwargs.get('attachments') or []:
+                with open(f, "rb") as fil:
+                    part = MIMEApplication(
+                        fil.read(),
+                        Name=basename(f)
+                    )
+                    part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
                     msg.attach(part)
-
         else:
             msg = text
 
-        msg['Subject'] = self.name
-        msg['From'] = self.sender
-        msg['To'] = COMMASPACE.join(self.recipients)
-        return msg
-
-    @classmethod
-    def _prepare_string(cls, msg):
-        for k in cls.translation_map:
-            msg = msg.replace(k, cls.translation_map[k])
+        msg['Subject'] = kwargs.get('email_subject', self.subject)
+        msg['From'] = kwargs.get('email_sender', self.sender)
+        msg['To'] = COMMASPACE.join(kwargs.get('email_recipients', self.recipients))
         return msg
 
     def _connect_and_send(self, msg):
@@ -98,6 +100,61 @@ class EmailNotification(Notification):
         connection.quit()
 
 
-def send_email(msg, mailhost, port, sender, recipients, subject, email_template=None, strict=False, attachments=None):
-    e = EmailNotification(subject, mailhost, port, sender, recipients, strict=strict, email_template=email_template)
-    e.notify(msg, attachments)
+class EmailNotification(Notification):
+    translation_map = {' ': '&nbsp', '\n': '<br/>'}
+
+    def __init__(self, name, mailhost, port, sender, recipients, strict=False, email_template=None):
+        super().__init__(name)
+        self.email_sender = EmailSender(name, mailhost, port, sender, recipients, email_template)
+        self.strict = strict
+        self.email_template = email_template
+
+    def notify(self, msg, attachments=None):
+        try:
+            if self.email_template:
+                self.email_sender.send_email(title=self.name, body=self._prepare_string(msg), attachments=attachments)
+            else:
+                self.email_sender.send_email(text_message=msg, attachments=attachments)
+        except EGCGError:
+            err_msg = 'Failed to send message: ' + str(msg)
+            if self.strict:
+                raise EGCGError(err_msg)
+            else:
+                self.critical(err_msg)
+
+    @classmethod
+    def _prepare_string(cls, msg):
+        for k in cls.translation_map:
+            msg = msg.replace(k, cls.translation_map[k])
+        return msg
+
+
+def send_email(msg, mailhost, port, sender, recipients, subject, email_template=None, attachments=None, **kwargs):
+    warnings.warn("deprecated use send_plain_text_email or send_html_email instead", DeprecationWarning)
+    if msg and not email_template:
+        send_plain_text_email(msg, mailhost, port, sender, recipients, subject, attachments)
+    elif email_template and not msg:
+        send_html_email(mailhost, port, sender, recipients, subject, email_template, attachments, **kwargs)
+    else:
+        send_html_email(mailhost, port, sender, recipients, subject, email_template, attachments, msg=msg, **kwargs)
+
+
+def send_plain_text_email(msg, mailhost, port, sender, recipients, subject, attachments=None):
+    EmailSender(
+        subject,
+        mailhost,
+        port,
+        sender,
+        recipients,
+    ).send_email(text_message=msg, attachments=attachments)
+
+
+def send_html_email(mailhost, port, sender, recipients, subject, email_template, attachments=None, **kwargs):
+    EmailSender(
+        subject,
+        mailhost,
+        port,
+        sender,
+        recipients,
+        email_template=email_template
+    ).send_email(attachments=attachments, **kwargs)

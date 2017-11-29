@@ -6,6 +6,7 @@ from smtplib import SMTPException
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
+from egcg_core.config import cfg
 from egcg_core import notifications as n
 from egcg_core.exceptions import EGCGError
 from tests import TestEGCG
@@ -30,14 +31,15 @@ class FakeSMTP(Mock):
 
 class TestNotificationCentre(TestEGCG):
     def setUp(self):
+        cfg.load_config_file(TestEGCG.etc_config)
         self.notification_centre = n.NotificationCentre('a_name')
 
     def test_config_init(self):
         e = self.notification_centre.subscribers['email']
-        assert e.sender == 'this'
-        assert e.recipients == ['that', 'other']
-        assert e.mailhost == 'localhost'
-        assert e.port == 1337
+        assert e.email_sender.sender == 'this'
+        assert e.email_sender.recipients == ['that', 'other']
+        assert e.email_sender.mailhost == 'localhost'
+        assert e.email_sender.port == 1337
         assert e.strict is True
 
         a = self.notification_centre.subscribers['asana']
@@ -79,25 +81,26 @@ class TestLogNotification(TestEGCG):
         self._test_notify_with_attachements(join(self.assets_path, 'test_to_upload.txt'))
 
 
-class TestEmailNotification(TestEGCG):
+class TestEmailSender(TestEGCG):
     def setUp(self):
-        self.ntf = n.EmailNotification(
-            'a_subject', 'localhost', 1337, 'a_sender', ['some', 'recipients'], strict=True,
-            email_template=join(dirname(dirname(abspath(__file__))), 'etc', 'email_notification.html')
+        self.email_sender = n.EmailSender(
+            'a_subject', 'localhost', 1337, 'a_sender', ['some', 'recipients'],
+            email_template=join(self.etc, 'email_notification.html')
         )
 
-    @patch('egcg_core.notifications.EmailNotification._logger')
+    @patch('egcg_core.notifications.email.EmailSender._logger')
     def test_retries(self, mocked_logger):
+        self.email_sender.email_template = None
         with patch('smtplib.SMTP', new=FakeSMTP), patch('egcg_core.notifications.email.sleep'):
-            assert self.ntf._try_send(self.ntf.build_email('this is a test')) is True
-            assert self.ntf._try_send(self.ntf.build_email('dodgy')) is False
+            assert self.email_sender._try_send(self.email_sender._build_email(text_message='this is a test')) is True
+            assert self.email_sender._try_send(self.email_sender._build_email(text_message='dodgy')) is False
             for i in range(3):
                 mocked_logger.warning.assert_any_call(
                     'Encountered a %s exception. %s retries remaining', 'Oh noes!', i
                 )
 
             with pytest.raises(EGCGError) as e:
-                self.ntf.notify('dodgy')
+                self.email_sender.send_email(text_message='dodgy')
                 assert 'Failed to send message: dodgy' in str(e)
 
     def test_build_email(self):
@@ -115,7 +118,7 @@ class TestEmailNotification(TestEGCG):
             '</head>\n'
             '<body>\n'
             '    <h2>a_subject</h2>\n'
-            '    <p>a&nbspmessage</p>\n'
+            '    <p>a message</p>\n'
             '</body>\n'
             '</html>'
         )
@@ -124,26 +127,26 @@ class TestEmailNotification(TestEGCG):
         exp['Subject'] = 'a_subject'
         exp['From'] = 'a_sender'
         exp['To'] = 'some, recipients'
-        obs = self.ntf.build_email('a message')
+        obs = self.email_sender._build_email(title='a_subject', body='a message')
         assert str(obs) == str(exp)
 
     def test_build_email_plain_text(self):
-        self.ntf.email_template = None
+        self.email_sender.email_template = None
         exp = MIMEText('a message')
         exp['Subject'] = 'a_subject'
         exp['From'] = 'a_sender'
         exp['To'] = 'some, recipients'
-        obs = self.ntf.build_email('a message')
+        obs = self.email_sender._build_email(text_message='a message')
         assert str(obs) == str(exp)
 
     def _test_build_email_attachments(self, attachements):
         attachment = join(self.assets_path, 'test_to_upload.txt')
-        self.ntf.email_template = None
+        self.email_sender.email_template = None
         exp = MIMEMultipart()
         exp['Subject'] = 'a_subject'
         exp['From'] = 'a_sender'
         exp['To'] = 'some, recipients'
-        obs = self.ntf.build_email('a message', attachments=attachements)
+        obs = self.email_sender._build_email(text_message='a message', attachments=attachements)
         payload = obs.get_payload()
         assert len(payload) == 2
         assert str(payload[0]) == str(MIMEText('a message'))
@@ -164,13 +167,114 @@ class TestEmailNotification(TestEGCG):
         self._test_build_email_attachments(attachment)
 
 
-@patch('egcg_core.notifications.EmailNotification._try_send')
-def test_send_email(mocked_send):
-    n.send_email('a message', 'localhost', 1337, 'a_sender', ['some', 'recipients'], 'a subject')
+class TestEmailNotification(TestEGCG):
+    def setUp(self):
+        self.ntf = n.EmailNotification('a_subject', 'localhost', 1337, 'a_sender', ['some', 'recipients'], strict=True)
+        self.ntf2 = n.EmailNotification(
+            'a_subject', 'localhost', 1337, 'a_sender', ['some', 'recipients'], strict=True,
+            email_template=join(dirname(dirname(abspath(__file__))), 'etc', 'email_notification.html')
+        )
+
+    @patch.object(n.EmailSender, 'send_email')
+    def test_notify(self, mock_send_email):
+        self.ntf.notify('a message')
+        mock_send_email.assert_called_once_with(text_message='a message', attachments=None)
+
+        mock_send_email.reset_mock()
+        self.ntf2.notify('a message')
+        mock_send_email.assert_called_once_with(title='a_subject', body='a&nbspmessage', attachments=None)
+
+    @patch.object(n.EmailSender, 'send_email', side_effect=EGCGError)
+    def test_notify_fail(self, mock_send_email):
+        with pytest.raises(EGCGError) as excinfo:
+            self.ntf.notify('a message')
+        assert 'Failed to send message: a message' in str(excinfo)
+
+
+@patch('egcg_core.notifications.email.EmailSender._try_send')
+def test_send_plain_text_email(mocked_send):
+    n.send_plain_text_email('a message', 'localhost', 1337, 'a_sender', ['some', 'recipients'], 'a subject')
     exp = MIMEText('a message')
     exp['Subject'] = 'a subject'
     exp['From'] = 'a_sender'
     exp['To'] = 'some, recipients'
+    assert str(mocked_send.call_args[0][0]) == str(exp)
+
+
+@patch('egcg_core.notifications.email.EmailSender._try_send')
+def test_send_html_email(mocked_send):
+    email_template = join(dirname(dirname(abspath(__file__))), 'etc', 'email_notification.html')
+
+    n.send_html_email('localhost', 1337, 'Sender', ['reciptient1', 'reciptient2'], 'Subject',
+        email_template=email_template, title='title', body='body')
+    exp_msg = (
+        '<!DOCTYPE html>\n'
+        '<html lang="en">\n'
+        '<head>\n'
+        '    <meta charset="UTF-8">\n'
+        '    <style>\n'
+        '        table, th, td {\n'
+        '            border: 1px solid black;\n'
+        '            border-collapse: collapse;\n'
+        '        }\n'
+        '    </style>\n'
+        '</head>\n'
+        '<body>\n'
+        '    <h2>title</h2>\n'
+        '    <p>body</p>\n'
+        '</body>\n'
+        '</html>'
+    )
+    exp = MIMEText(exp_msg, 'html')
+    exp['Subject'] = 'Subject'
+    exp['From'] = 'Sender'
+    exp['To'] = 'reciptient1, reciptient2'
+    assert str(mocked_send.call_args[0][0]) == str(exp)
+
+
+@patch('egcg_core.notifications.email.EmailSender._try_send')
+def test_send_email(mocked_send):
+    email_template = join(dirname(dirname(abspath(__file__))), 'etc', 'email_notification.html')
+
+    n.send_email('a message', 'localhost', 1337, 'Sender', ['reciptient1', 'reciptient2'], 'Subject')
+    exp = MIMEText('a message')
+    exp['Subject'] = 'Subject'
+    exp['From'] = 'Sender'
+    exp['To'] = 'reciptient1, reciptient2'
+    assert str(mocked_send.call_args[0][0]) == str(exp)
+
+    mocked_send.reset_mock()
+    n.send_email(None, 'localhost', 1337, 'Sender', ['reciptient1', 'reciptient2'], 'Subject',
+                 email_template=email_template, title='title', body='body')
+    exp_msg = (
+        '<!DOCTYPE html>\n'
+        '<html lang="en">\n'
+        '<head>\n'
+        '    <meta charset="UTF-8">\n'
+        '    <style>\n'
+        '        table, th, td {\n'
+        '            border: 1px solid black;\n'
+        '            border-collapse: collapse;\n'
+        '        }\n'
+        '    </style>\n'
+        '</head>\n'
+        '<body>\n'
+        '    <h2>title</h2>\n'
+        '    <p>body</p>\n'
+        '</body>\n'
+        '</html>'
+    )
+    exp = MIMEText(exp_msg, 'html')
+    exp['Subject'] = 'Subject'
+    exp['From'] = 'Sender'
+    exp['To'] = 'reciptient1, reciptient2'
+    assert str(mocked_send.call_args[0][0]) == str(exp)
+
+    # Adding message and template means the template is used and the msg is only passed and most likely ignored
+    mocked_send.reset_mock()
+    n.send_email('msg', 'localhost', 1337, 'Sender', ['reciptient1', 'reciptient2'], 'Subject',
+                 email_template=email_template, title='title', body='body')
+
     assert str(mocked_send.call_args[0][0]) == str(exp)
 
 
