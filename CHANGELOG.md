@@ -1,10 +1,10 @@
 Changelog for EGCG-Core
 ===========================
 
-0.8 (unreleased)
+0.8 (2017-11-29)
 ----------------
 
-- Nothing changed yet.
+- New EmailSender class that take most of the feature of EmailNotification 
 
 
 0.7.5 (2017-11-23)
