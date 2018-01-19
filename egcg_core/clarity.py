@@ -4,7 +4,7 @@ from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.exceptions import EGCGError
 
-app_logger = log_cfg.get_logger('clarity')
+app_logger = log_cfg.get_logger(__name__)
 
 try:
     from egcg_core.ncbi import get_species_name
@@ -46,8 +46,8 @@ def get_valid_lanes(flowcell_name):
         artifact = flowcell.placements.get(placement_key)
         if not artifact.udf.get('Lane Failed?', False):
             valid_lanes.append(lane)
-    valid_lanes = sorted(valid_lanes)
-    app_logger.info('Valid lanes for %s: %s', flowcell_name, str(valid_lanes))
+    valid_lanes.sort()
+    app_logger.debug('Valid lanes for %s: %s', flowcell_name, valid_lanes)
     return valid_lanes
 
 
@@ -147,7 +147,7 @@ def _get_list_of_samples(sample_names, sub=0):
         if sub < len(substitutions):
             samples.extend(_get_list_of_samples(remainder, sub))
         else:  # end recursion
-            app_logger.warning('Could not find %s in Lims' % remainder)
+            app_logger.warning('Could not find %s in Lims', remainder)
 
     return samples
 

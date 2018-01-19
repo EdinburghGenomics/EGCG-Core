@@ -5,7 +5,7 @@ from time import sleep
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.exceptions import ArchivingError
 
-app_logger = log_cfg.get_logger('archive_management')
+app_logger = log_cfg.get_logger(__name__)
 state_re = re.compile('^(.+): \((0x\w+)\)(.+)?')
 
 

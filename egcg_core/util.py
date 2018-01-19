@@ -4,7 +4,7 @@ from glob import glob
 from egcg_core.exceptions import EGCGError
 from egcg_core.app_logging import logging_default as log_cfg
 
-app_logger = log_cfg.get_logger('util')
+app_logger = log_cfg.get_logger(__name__)
 
 
 def check_if_nested(data):
@@ -48,7 +48,7 @@ def find_fastqs(location, project_id, sample_id, lane=None):
 
     pattern = os.path.join(location, project_id, sample_id, basename)
     fastqs = find_files(pattern)
-    app_logger.info('Found %s fastq files for %s', len(fastqs), pattern)
+    app_logger.debug('Found %s fastq files for %s', len(fastqs), pattern)
     return fastqs
 
 
@@ -57,7 +57,7 @@ def find_all_fastqs(location):
     fastqs = []
     for name, dirs, files in os.walk(location):
         fastqs.extend(os.path.join(name, f) for f in files if f.endswith('.fastq.gz'))
-    app_logger.info('Found %s fastqs in %s', len(fastqs), location)
+    app_logger.debug('Found %s fastqs in %s', len(fastqs), location)
     return fastqs
 
 

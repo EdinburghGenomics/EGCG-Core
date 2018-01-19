@@ -34,7 +34,7 @@ class Executor(AppLogger):
         resource managers.
         :rtype: subprocess.Popen
         """
-        self.info('Executing: ' + self.cmd)
+        self.info('Executing: %s', self.cmd)
         # TODO: explore how to run commands with Bash constructs , e.g. 'command <(sub command)'
         self.proc = subprocess.Popen(shlex.split(self.cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return self.proc
