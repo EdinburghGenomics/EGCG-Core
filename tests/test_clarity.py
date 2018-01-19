@@ -139,16 +139,15 @@ class TestClarity(TestEGCG):
         calling_sample_ids = ['this', 'that_01', 'other__L_01']
         fake_list_samples = [[FakeEntity(n)] for n in exp_lims_sample_ids]
         psamples = patched_lims('get_samples', side_effect=fake_list_samples)
-        log_msgs = []
-        pwarn = patched('app_logger.warning', new=log_msgs.append)
+        pwarn = patched('app_logger.warning')
 
-        with patched_lims('get_batch'), psamples as mocked_get_samples, pwarn:
+        with patched_lims('get_batch'), psamples as mocked_get_samples, pwarn as mocked_warn:
             samples = clarity.get_list_of_samples(calling_sample_ids + ['sample_not_in_lims'])
             assert [s.name for s in samples] == exp_lims_sample_ids
             mocked_get_samples.assert_any_call(name=['this', 'that_01', 'other__L_01', 'sample_not_in_lims'])
             mocked_get_samples.assert_any_call(name=['other__L:01', 'sample_not_in_lims', 'that:01'])
             mocked_get_samples.assert_any_call(name=['other _L:01', 'sample_not_in_lims'])
-            assert log_msgs == ["Could not find ['sample_not_in_lims'] in Lims"]
+            mocked_warn.assert_called_with("Could not find %s in Lims", ['sample_not_in_lims'])
 
     @patched_lims('get_samples', side_effect=[[], [], [None]])
     def test_get_samples(self, mocked_lims):
