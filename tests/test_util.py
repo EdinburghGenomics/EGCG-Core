@@ -74,7 +74,6 @@ class TestMoveDir(TestEGCG):
 
     def setUp(self):
         self.test_dir = join(self.assets_path, 'move_dir')
-        makedirs(join(self.test_dir, 'from'), exist_ok=True)
         makedirs(join(self.test_dir, 'from', 'subdir'), exist_ok=True)
         self._create_test_file(join(self.test_dir, 'from', 'ftest.txt'))
         self._create_test_file(join(self.test_dir, 'from', 'subdir', 'ftest.txt'))
@@ -83,7 +82,6 @@ class TestMoveDir(TestEGCG):
         self._create_test_file(join(self.test_dir, 'external', 'external.txt'), 'External file')
         symlink(join(self.test_dir, 'external', 'external.txt'), join(self.test_dir, 'from', 'external_renamed.txt'))
 
-        makedirs(join(self.test_dir, 'exists'), exist_ok=True)
         makedirs(join(self.test_dir, 'exists', 'subdir'), exist_ok=True)
         self._create_test_file(join(self.test_dir, 'exists', 'subdir', 'ftest.txt'), 'another file')
         self._create_test_file(join(self.test_dir, 'exists', 'ftest.txt'), 'another file')
@@ -127,3 +125,10 @@ class TestMoveDir(TestEGCG):
         assert util.find_file(to, 'ftest.txt')
         assert md5_from1 == self._md5(join(to, 'ftest.txt'))
         assert md5_from2 == self._md5(join(to, 'subdir', 'ftest.txt'))
+
+
+def test_query_dict():
+    data = {'this': {'that': 'other'}}
+    assert util.query_dict(data, 'this') == {'that': 'other'}
+    assert util.query_dict(data, 'this.that') == 'other'
+    assert util.query_dict(data, 'nonexistent') is None
