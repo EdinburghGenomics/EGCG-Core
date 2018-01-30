@@ -100,3 +100,22 @@ def move_dir(src_dir, dest_dir):
             dest_file = os.path.join(dest_dir, os.path.basename(src_file))
             shutil.move(fp, dest_file)
     return 0
+
+
+def query_dict(data, query_string):
+    """
+    Drill down into a dict using dot notation, e.g. query_dict({'this': {'that': 'other'}}, 'this.that'}).
+    :param dict data:
+    :param str query_string:
+    """
+    _data = data.copy()
+
+    for q in query_string.split('.'):
+        d = _data.get(q)
+        if d is None:
+            return None
+
+        else:
+            _data = d
+
+    return _data
