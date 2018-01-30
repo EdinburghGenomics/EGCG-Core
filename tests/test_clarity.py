@@ -32,8 +32,9 @@ class FakeContainer:
         }
 
 
-class FakeProcess:
-    date_run = 'a_date_run'
+class FakeProcess(Mock):
+    date_run = 'a_date'
+    udf = {}
 
     @staticmethod
     def all_inputs():
@@ -41,15 +42,11 @@ class FakeProcess:
 
     @staticmethod
     def input_per_sample(sample_name):
-        return [Mock(id=sample_name)]
+        return [Mock(id=sample_name, location=('container', '1:this'), udf={})]
 
     @staticmethod
     def outputs_per_input(artifact_id, **kwargs):
         return [Mock(container=artifact_id)]
-
-
-class FakeProcess2(FakeProcess):
-    date_run = 'a_older_date_run'
 
 
 fake_samples = [
@@ -104,7 +101,7 @@ class TestClarity(TestEGCG):
         with patched_clarity('get_samples', fake_samples[0:1]):
             assert clarity.find_project_name_from_sample('a_sample') == 'this'
 
-    @patched_lims('get_artifacts', [Mock(parent_process=Mock(udf={}, input_per_sample=lambda sample_name: [Mock(location=('container', '1:this'), udf={})]))])
+    @patched_lims('get_artifacts', [Mock(parent_process=FakeProcess)])
     @patched_clarity('get_sample', FakeEntity('a_sample'))
     def test_find_run_elements_from_sample(self, mocked_get_sample, mocked_get_artifacts):
         assert list(clarity.find_run_elements_from_sample('a_sample')) == [(None, '1')]
@@ -268,15 +265,15 @@ class TestClarity(TestEGCG):
         mocked_lims.assert_called_with(type='Data Release EG 1.0')
 
     @patched_clarity('get_sample', Mock(artifact=Mock(id='an_artifact_id')))
-    @patched_lims('get_processes', side_effect=[[FakeProcess], [FakeProcess, FakeProcess2]])
+    @patched_lims('get_processes', side_effect=[[FakeProcess], [FakeProcess, FakeProcess(date_run='another_date')]])
     def test_get_sample_release_date(self, mocked_get_procs, mocked_get_sample):
-        assert clarity.get_sample_release_date('a_sample_name') == 'a_date_run'
+        assert clarity.get_sample_release_date('a_sample_name') == 'a_date'
         mocked_get_procs.assert_called_with(type='Data Release EG 1.0', inputartifactlimsid='an_artifact_id')
         mocked_get_sample.assert_called_with('a_sample_name')
         mocked_get_procs.reset_mock()
         mocked_get_sample.reset_mock()
 
-        assert clarity.get_sample_release_date('a_sample_name2') == 'a_older_date_run'
+        assert clarity.get_sample_release_date('a_sample_name2') == 'another_date'
         clarity.app_logger.warning.assert_called_with(
             '%s Processes found for sample %s: returning latest one', 2, 'a_sample_name2'
         )
