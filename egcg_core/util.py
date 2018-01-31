@@ -11,11 +11,11 @@ def check_if_nested(data):
     """Check whether a data structure contains lists/dicts."""
     if isinstance(data, dict):
         for k in data:
-            if type(data[k]) in (list, dict):
+            if isinstance(data[k], (list, dict)):
                 return True
     elif isinstance(data, list):
         for i in data:
-            if type(i) in (list, dict):
+            if isinstance(i, (list, dict)):
                 return True
     return False
 

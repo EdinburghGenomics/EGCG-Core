@@ -82,7 +82,7 @@ class ClusterExecutor(AppLogger):
             elif s in self.unfinished_statuses:
                 return False
             else:
-                raise EGCGError('Bad job status: %s', s)
+                raise EGCGError('Bad job status: %s' % s)
         return True
 
     def _get_stdout(self, cmd):

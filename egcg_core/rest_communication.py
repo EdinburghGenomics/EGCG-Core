@@ -19,7 +19,7 @@ class Communicator(AppLogger):
     def serialise(queries):
         serialised_queries = {}
         for k, v in queries.items():
-            serialised_queries[k] = json.dumps(v) if type(v) is dict else v
+            serialised_queries[k] = json.dumps(v) if isinstance(v, dict) else v
         return serialised_queries
 
     @staticmethod
@@ -103,9 +103,9 @@ class Communicator(AppLogger):
         return query
 
     def _req(self, method, url, quiet=False, **kwargs):
-        if type(self.auth) is tuple:
+        if isinstance(self.auth, tuple):
             kwargs['auth'] = self.auth
-        elif type(self.auth) is str:
+        elif isinstance(self.auth, str):
             kwargs['headers'] = dict(kwargs.get('headers', {}), Authorization='Token %s' % self.auth)
 
         # can't upload json and files at the same time, so we need to move the json parameter to data

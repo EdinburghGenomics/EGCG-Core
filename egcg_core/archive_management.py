@@ -40,10 +40,8 @@ def archive_states(file_path):
 
 
 def is_of_state(state, file_path, known_states=None):
-    if known_states:
-        return state in known_states
-    else:
-        return state in archive_states(file_path)
+    states = known_states or archive_states(file_path)
+    return state in states
 
 
 def is_registered_for_archiving(file_path, known_states=None):
