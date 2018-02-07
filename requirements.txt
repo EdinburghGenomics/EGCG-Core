@@ -3,5 +3,5 @@ requests==2.14.2
 PyYAML>=3.11
 pyclarity_lims>=0.4
 jinja2==2.8
-asana==0.6.5
+asana==0.6.7
 cached_property
