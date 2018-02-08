@@ -30,7 +30,7 @@ class ScriptWriter(AppLogger):
         self.log_commands = log_commands
         self.working_dir = working_dir
         self.log_file = join(self.working_dir, job_name + '.log')
-        self.info('Writing job "%s" in %s', job_name, working_dir)
+        self.debug('Writing job "%s" in %s', job_name, working_dir)
         self.lines = []
         self.array_jobs_written = 0
         self.cluster_config = dict(cluster_config, job_name=job_name, log_file=self.log_file, job_queue=job_queue)

@@ -50,7 +50,7 @@ class ClusterExecutor(AppLogger):
         self.write_script()
         self._submit_job()
         running_executors[self.job_id] = self  # register to running_executors
-        self.info('Submitted "%s" as job %s' % (self.writer.script_name, self.job_id))
+        self.info('Submitted "%s" as job %s', self.writer.script_name, self.job_id)
 
     def join(self):
         """Wait until the job has finished, then return its exit status."""
@@ -82,7 +82,7 @@ class ClusterExecutor(AppLogger):
             elif s in self.unfinished_statuses:
                 return False
             else:
-                raise EGCGError('Bad job status: %s', s)
+                raise EGCGError('Bad job status: %s' % s)
         return True
 
     def _get_stdout(self, cmd):
@@ -180,8 +180,8 @@ class SlurmExecutor(ClusterExecutor):
                 exit_code = 9
             exit_status += exit_code
 
-        self.info('Got %s states from %s (%s) with %s jobs: %s', len(states), self.job_name, self.job_id,
-                  len(reports), states)
+        self.info('Got %s states from %s (%s) with %s jobs: %s', len(states),
+                  self.job_name, self.job_id, len(reports), states)
         return exit_status
 
     def _cancel_job(self):

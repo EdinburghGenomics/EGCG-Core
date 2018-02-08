@@ -24,4 +24,4 @@ class LogNotification(Notification):
                 attachments = [attachments]
 
         for attachment in attachments or []:
-            self.info('Attachment: %s' % attachment)
+            self.info('Attachment: %s', attachment)

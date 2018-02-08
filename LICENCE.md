@@ -2,7 +2,7 @@ MIT License
 
 Copyright (c) 2016, Edinburgh Genomics
 
-Authors: mwhamgenomics, tcezard, katieemilianova
+Authors: mwhamgenomics, tcezard, katieemelianova
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

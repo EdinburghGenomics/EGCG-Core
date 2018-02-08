@@ -4,7 +4,7 @@ import requests
 from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
 
-app_logger = log_cfg.get_logger('ncbi')
+app_logger = log_cfg.get_logger(__name__)
 
 data_cache = None
 cursor = None

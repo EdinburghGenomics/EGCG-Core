@@ -66,7 +66,7 @@ class TestLogNotification(TestEGCG):
         with open(self.notification_log) as open_file:
             assert '[log_notification] message' in open_file.read()
 
-    def _test_notify_with_attachements(self, attachments):
+    def _test_notify_with_attachments(self, attachments):
         attachment = join(self.assets_path, 'test_to_upload.txt')
         self.ntf.notify('message', attachments=attachments)
         with open(self.notification_log) as open_file:
@@ -74,11 +74,11 @@ class TestLogNotification(TestEGCG):
             assert '[log_notification] message' in data[0]
             assert '[log_notification] Attachment: %s' % attachment in data[1]
 
-    def test_notify_with_attachement(self):
-        self._test_notify_with_attachements([join(self.assets_path, 'test_to_upload.txt')])
+    def test_notify_with_attachment(self):
+        self._test_notify_with_attachments([join(self.assets_path, 'test_to_upload.txt')])
 
-    def test_notify_with_attachements(self):
-        self._test_notify_with_attachements(join(self.assets_path, 'test_to_upload.txt'))
+    def test_notify_with_attachments(self):
+        self._test_notify_with_attachments(join(self.assets_path, 'test_to_upload.txt'))
 
 
 class TestEmailSender(TestEGCG):

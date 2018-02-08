@@ -21,7 +21,7 @@ class StreamExecutor(Thread, Executor):
         super().join(timeout=timeout)
         if self.exception:
             self._stop()
-            self.error('Encountered a %s error: %s' % (self.exception.__class__.__name__, str(self.exception)))
+            self.error('Encountered a %s error: %s', self.exception.__class__.__name__, str(self.exception))
             raise EGCGError('self.proc command failed: ' + self.cmd)
         return self.proc.wait()
 

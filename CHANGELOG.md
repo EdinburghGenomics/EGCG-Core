@@ -37,7 +37,7 @@ Changelog for EGCG-Core
 0.7.2 (2017-08-03)
 ------------------
 
-- Allow Lims cached connection to be overriden
+- Allow Lims cached connection to be overridden
 
 
 0.7.1 (2017-06-08)
@@ -194,7 +194,7 @@ egcg_core.config.cfg.load_config_file('/path/to/a_config.yaml')
 
 0.2.4
 -----
-Since 0.2.1, this project now stores version information in __init__.__version__. A field for EdinburghGenomcis/EGCG-Project-Management has also been added to constants, and an executor bug has been fixed.
+Since 0.2.1, this project now stores version information in __init__.__version__. A field for EdinburghGenomics/EGCG-Project-Management has also been added to constants, and an executor bug has been fixed.
 
 0.2.3
 -----

@@ -4,7 +4,7 @@ from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.exceptions import EGCGError
 
-app_logger = log_cfg.get_logger('clarity')
+app_logger = log_cfg.get_logger(__name__)
 
 try:
     from egcg_core.ncbi import get_species_name
@@ -46,8 +46,8 @@ def get_valid_lanes(flowcell_name):
         artifact = flowcell.placements.get(placement_key)
         if not artifact.udf.get('Lane Failed?', False):
             valid_lanes.append(lane)
-    valid_lanes = sorted(valid_lanes)
-    app_logger.info('Valid lanes for %s: %s', flowcell_name, str(valid_lanes))
+    valid_lanes.sort()
+    app_logger.debug('Valid lanes for %s: %s', flowcell_name, valid_lanes)
     return valid_lanes
 
 
@@ -147,7 +147,7 @@ def _get_list_of_samples(sample_names, sub=0):
         if sub < len(substitutions):
             samples.extend(_get_list_of_samples(remainder, sub))
         else:  # end recursion
-            app_logger.warning('Could not find %s in Lims' % remainder)
+            app_logger.warning('Could not find %s in Lims', remainder)
 
     return samples
 
@@ -156,10 +156,10 @@ def get_samples(sample_name):
     lims = connection()
     samples = lims.get_samples(name=sample_name)
     # FIXME: Remove the hack when we're sure our sample id don't have colon
-    if len(samples) == 0:
+    if not samples:
         sample_name_sub = re.sub("_(\d{2})$", ":\g<1>", sample_name)
         samples = lims.get_samples(name=sample_name_sub)
-    if len(samples) == 0:
+    if not samples:
         sample_name_sub = re.sub("__(\w)_(\d{2})", " _\g<1>:\g<2>", sample_name)
         samples = lims.get_samples(name=sample_name_sub)
     return samples

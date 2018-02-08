@@ -22,7 +22,7 @@ class NotificationCentre(AppLogger):
                 config = cfg['notifications'][s]
                 self.subscribers[s] = self.ntf_aliases[s](name=self.name, **config)
             else:
-                self.warning("Bad notification config '%s' - this will be ignored" % s)
+                self.warning("Bad notification config '%s' - this will be ignored", s)
 
     def notify(self, msg, subs):
         for s in subs:
@@ -32,5 +32,5 @@ class NotificationCentre(AppLogger):
                 self.debug('Tried to notify by %s, but no configuration present', s)
 
     def notify_all(self, msg):
-        for name, s in self.subscribers.items():
+        for s in self.subscribers.values():
             s.notify(msg)
