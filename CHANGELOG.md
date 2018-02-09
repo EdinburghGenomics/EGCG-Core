@@ -1,10 +1,11 @@
 Changelog for EGCG-Core
 ===========================
 
-0.9 (unreleased)
-----------------
+0.8.1 (2018-02-09)
+------------------
 
-- Nothing changed yet.
+- New constants capturing the Interop metrics
+- New function for querying dict with dot notation
 
 
 0.8 (2017-11-29)

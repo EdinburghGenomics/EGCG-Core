@@ -18,7 +18,7 @@ def _translate_req(r):
         req += '(%s)' % _version
     return req
 
-version = '0.9.dev0'
+version = '0.8.1'
 
 setup(
     name='EGCG-Core',
