@@ -1,4 +1,6 @@
 pytest>=2.7.2
+pytest_xdist>=1.22.2
+pytest_cov>=2.5.1
 requests==2.14.2
 PyYAML>=3.11
 pyclarity_lims>=0.4

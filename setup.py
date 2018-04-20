@@ -45,6 +45,7 @@ setup(
     keywords='EdinburghGenomics executor notification logging api rest',
     requires=[_translate_req(r) for r in requirements],  # metadata
     install_requires=requirements,  # actual module requirements
+    scripts=['bin/integration_test_runner.py'],
     zip_safe=False,
     author='Murray Wham',
     author_email='murray.wham@ed.ac.uk'
