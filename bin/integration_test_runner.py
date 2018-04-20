@@ -114,10 +114,12 @@ def main():
     )
 
     test_output += s.getvalue()
-    with open('checks.log', 'r') as f:
-        checks = f.read()
-        if checks:
-            test_output += 'Checks:\n' + checks
+    checks_log = 'checks.log'
+    if os.path.isfile(checks_log):
+        with open(checks_log, 'r') as f:
+            checks = f.read()
+            if checks:
+                test_output += 'Checks:\n' + checks
 
     os.chdir(top_level)
 
