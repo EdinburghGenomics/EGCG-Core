@@ -24,7 +24,7 @@ def test_fetch_from_eutils():
         <OtherNames><CommonName>a common name</CommonName></OtherNames>
         <Rank>species</Rank>
     '''
-    ncbi_fetch_data_sub_spe = '''
+    ncbi_fetch_data_sub_species = '''
         <ScientificName>Genus species</ScientificName>
         <OtherNames><CommonName>a common name</CommonName></OtherNames>
         <Rank>subspecies</Rank>
@@ -33,19 +33,19 @@ def test_fetch_from_eutils():
     patched_get = patch(
         'egcg_core.ncbi.requests.get',
         side_effect=(
-            FakeRestResponse(content=ncbi_search_data),
-            FakeRestResponse(content=ncbi_fetch_data),
-            FakeRestResponse(content=ncbi_fetch_data),
-            FakeRestResponse(content=ncbi_fetch_data)
+            FakeRestResponse(ncbi_search_data),
+            FakeRestResponse(ncbi_fetch_data),
+            FakeRestResponse(ncbi_fetch_data),
+            FakeRestResponse(ncbi_fetch_data)
         )
     )
     patched_get2 = patch(
         'egcg_core.ncbi.requests.get',
         side_effect=(
-            FakeRestResponse(content=ncbi_search_data),
-            FakeRestResponse(content=ncbi_fetch_data_sub_spe),
-            FakeRestResponse(content=ncbi_fetch_data_sub_spe),
-            FakeRestResponse(content=ncbi_fetch_data_sub_spe)
+            FakeRestResponse(ncbi_search_data),
+            FakeRestResponse(ncbi_fetch_data_sub_species),
+            FakeRestResponse(ncbi_fetch_data_sub_species),
+            FakeRestResponse(ncbi_fetch_data_sub_species)
         )
     )
     with patched_get as mocked_get:

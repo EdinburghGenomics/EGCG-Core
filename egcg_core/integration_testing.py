@@ -81,8 +81,7 @@ class ReportingAppIntegrationTest(IntegrationTest):
         self.container_port = list(container_info['Config']['ExposedPorts'])[0].rstrip('/tcp')
         container_url = 'http://' + self.container_ip + ':' + self.container_port + '/api/0.1'
         rest_communication.default._baseurl = container_url
-        assert rest_communication.default._auth, "Need to specify authentication credentials in the tested app's config"
-
+        assert rest_communication.default.auth, "Need to specify authentication credentials in the tested app's config"
         self._ping(container_url)
 
     def tearDown(self):

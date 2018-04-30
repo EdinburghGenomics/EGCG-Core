@@ -25,8 +25,8 @@ class Communicator(AppLogger):
     @staticmethod
     def get_file_content(file_name):
         """
-        This method open in binary mode th file provided.
-        :param file_name: path to the file
+        Open a file in binary mode and close it afterwards.
+        :param str file_name:
         :return: file content
         """
         with open(file_name, 'rb') as f:
@@ -60,7 +60,7 @@ class Communicator(AppLogger):
     @staticmethod
     def _detect_files_in_json(json_data):
         if isinstance(json_data, list):
-            # Assume a list of dict
+            # Assume a list of dicts
             list_files = []
             list_jsons = []
             for d in json_data:

@@ -5,19 +5,16 @@ from unittest.mock import Mock
 
 
 class FakeRestResponse(Mock):
-    def __init__(self, *args, **kwargs):
-        content = kwargs.pop('content', None)
-        if type(content) in (list, dict):
-            content = json.dumps(content)
-        content = content.encode()
+    request = Mock(method='a method', path_url='a url')
+    status_code = 200
+    reason = 'a reason'
+
+    def __init__(self, content, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.content = content
-        self.request = Mock(method='a method', path_url='a url')
-        self.status_code = 200
-        self.reason = 'a reason'
+        self.content = json.dumps(content).encode()
 
     def json(self):
-        return json.loads(self.content.decode('utf-8'))
+        return json.loads(self.text)
 
     @property
     def text(self):
@@ -27,16 +24,5 @@ class FakeRestResponse(Mock):
 class TestEGCG(unittest.TestCase):
     file_path = os.path.dirname(__file__)
     assets_path = os.path.join(file_path, 'assets')
-
     etc = os.path.join(os.path.dirname(file_path), 'etc')
     etc_config = os.path.join(etc, 'example_egcg.yaml')
-
-    @staticmethod
-    def compare_lists(observed, expected):
-        if sorted(observed) != sorted(expected):
-            print('')
-            print('observed')
-            print(observed)
-            print('expected')
-            print(expected)
-            raise AssertionError

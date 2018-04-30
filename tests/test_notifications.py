@@ -206,7 +206,7 @@ def test_send_html_email(mocked_send):
     email_template = join(dirname(dirname(abspath(__file__))), 'etc', 'email_notification.html')
 
     n.send_html_email('localhost', 1337, 'Sender', ['reciptient1', 'reciptient2'], 'Subject',
-        email_template=email_template, title='title', body='body')
+                      email_template=email_template, title='title', body='body')
     exp_msg = (
         '<!DOCTYPE html>\n'
         '<html lang="en">\n'
@@ -232,50 +232,21 @@ def test_send_html_email(mocked_send):
     assert str(mocked_send.call_args[0][0]) == str(exp)
 
 
-@patch('egcg_core.notifications.email.EmailSender._try_send')
-def test_send_email(mocked_send):
+@patch('egcg_core.notifications.email.send_plain_text_email')
+@patch('egcg_core.notifications.email.send_html_email')
+def test_send_email(mocked_html, mocked_plain_text):
     email_template = join(dirname(dirname(abspath(__file__))), 'etc', 'email_notification.html')
 
-    n.send_email('a message', 'localhost', 1337, 'Sender', ['reciptient1', 'reciptient2'], 'Subject')
-    exp = MIMEText('a message')
-    exp['Subject'] = 'Subject'
-    exp['From'] = 'Sender'
-    exp['To'] = 'reciptient1, reciptient2'
-    assert str(mocked_send.call_args[0][0]) == str(exp)
+    n.send_email('a message', 'localhost', 1337, 'Sender', ['recipient1', 'recipient2'], 'Subject')
+    assert mocked_plain_text.call_count == 1
+    assert mocked_html.call_count == 0
 
-    mocked_send.reset_mock()
-    n.send_email(None, 'localhost', 1337, 'Sender', ['reciptient1', 'reciptient2'], 'Subject',
-                 email_template=email_template, title='title', body='body')
-    exp_msg = (
-        '<!DOCTYPE html>\n'
-        '<html lang="en">\n'
-        '<head>\n'
-        '    <meta charset="UTF-8">\n'
-        '    <style>\n'
-        '        table, th, td {\n'
-        '            border: 1px solid black;\n'
-        '            border-collapse: collapse;\n'
-        '        }\n'
-        '    </style>\n'
-        '</head>\n'
-        '<body>\n'
-        '    <h2>title</h2>\n'
-        '    <p>body</p>\n'
-        '</body>\n'
-        '</html>'
-    )
-    exp = MIMEText(exp_msg, 'html')
-    exp['Subject'] = 'Subject'
-    exp['From'] = 'Sender'
-    exp['To'] = 'reciptient1, reciptient2'
-    assert str(mocked_send.call_args[0][0]) == str(exp)
+    n.send_email(None, 'localhost', 1337, 'Sender', ['Recipients'], 'Subject', email_template, a_jinja2='arg')
+    mocked_html.assert_called_with('localhost', 1337, 'Sender', ['Recipients'], 'Subject', email_template, None, a_jinja2='arg')
 
     # Adding message and template means the template is used and the msg is only passed and most likely ignored
-    mocked_send.reset_mock()
-    n.send_email('msg', 'localhost', 1337, 'Sender', ['reciptient1', 'reciptient2'], 'Subject',
-                 email_template=email_template, title='title', body='body')
-
-    assert str(mocked_send.call_args[0][0]) == str(exp)
+    n.send_email('msg', 'localhost', 1337, 'Sender', ['Recipients'], 'Subject', email_template, a_jinja2='arg')
+    mocked_html.assert_called_with('localhost', 1337, 'Sender', ['Recipients'], 'Subject', email_template, None, a_jinja2='arg', msg='msg')
 
 
 class TestAsanaNotification(TestEGCG):
