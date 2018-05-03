@@ -1,6 +1,7 @@
 import json
 import requests
 from time import sleep
+from datetime import datetime
 from unittest import TestCase
 from egcg_core import config, rest_communication
 from subprocess import check_output
@@ -8,24 +9,35 @@ from subprocess import check_output
 cfg = config.Configuration()
 
 
+def now():
+    return datetime.utcnow().strftime('%Y-%m-%d_%H:%M:%S')
+
+
 class WrappedFunc:
     """For wrapping unittest.TestCase's assert methods, logging details of the assertion carried out."""
-    def __init__(self, assert_func):
+    def __init__(self, test_case, assert_func):
+        self.test_case = test_case
         self.assert_func = assert_func
 
     def __call__(self, check_name, *args, **kwargs):
         if not isinstance(check_name, str):
             raise NameError('Incorrect call - check_name required')
 
-        msg = "'%s' using %s with args: %s" % (check_name, self.assert_func.__name__, args)
+        msg = "%s.%s\t%s\t%s\t%s" % (
+            self.test_case.__class__.__name__,
+            self.test_case._testMethodName,
+            check_name,
+            self.assert_func.__name__,
+            args
+        )
         if kwargs:
             msg += ', with kwargs: %s' % kwargs
 
         try:
             self.assert_func(*args, **kwargs)
-            self.log(msg + ' - success')
+            self.log(msg + '\tsuccess')
         except AssertionError:
-            self.log(msg + ' - failed')
+            self.log(msg + '\tfailed')
             raise
 
     @staticmethod
@@ -47,7 +59,7 @@ class IntegrationTest(TestCase):
             if attrname.startswith('assert'):
                 attr = getattr(self.asserter, attrname)
                 if callable(attr):
-                    setattr(self, attrname, WrappedFunc(attr))
+                    setattr(self, attrname, WrappedFunc(self, attr))
 
     def setUp(self):
         for p in self.patches:

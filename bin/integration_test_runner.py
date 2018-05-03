@@ -7,7 +7,6 @@ import pytest
 import argparse
 from io import StringIO
 from string import hexdigits
-from datetime import datetime
 from subprocess import check_call, check_output, CalledProcessError
 from contextlib import redirect_stdout
 from egcg_core import notifications, integration_testing
@@ -24,10 +23,6 @@ def random_string(strlen=6):
     for i in range(strlen):
         s += random.choice(hexdigits)
     return s
-
-
-def now():
-    return datetime.utcnow().strftime('%Y-%m-%d_%H:%M:%S')
 
 
 def main():
@@ -98,11 +93,13 @@ def main():
         if args.n:
             pytest_args.extend(['-n', args.n])
 
-    start_time = now()
+    start_time = integration_testing.now()
+    integration_testing.log('test_method\tcheck_name\tassert_method\targs\tresult')
+
     s = StringIO()
     with redirect_stdout(s):
         exit_status = pytest.main(pytest_args)
-    end_time = now()
+    end_time = integration_testing.now()
 
     try:
         git_commit = check_output(['git', 'log', '--format=Run on commit %h%d, made on %aD', '-1']).decode()
