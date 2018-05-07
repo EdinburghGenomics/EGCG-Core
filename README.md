@@ -184,12 +184,31 @@ This is a library and runner script for quality-oriented testing.
 
 
 #### IntegrationTest
-Subclass of `unittest.TestCase`, containing all of the same assert* methods. Each assert method takes a string arg
-describing the assertion, and passes all other args to the corresponding `TestCase` method, logging the result of the
-test to `checks.log` in the working dir.
+Wraps most of `unittest.TestCase`'s assert methods (with the exception of methods that use the context manager, such as
+AssertRaises). Each wrapped assert method takes a string arg describing the assertion, and passes all other args to the
+corresponding `TestCase` method, logging the result of the test to `checks.log` in the working dir. For example:
 
-Also defines an attribute, `patches`, which in subclasses can be a tuple or list of `unittest.mock.patch` calls. These
-patches have `__enter__` called on them on test setup, and `__exit__` on test teardown.
+```python
+class TestThing(IntegrationTest):
+    def test_thing(self):
+        x = 1
+        y = 1
+        z = False
+        self.assertEqual('x equals y', x, y)
+        self.assertTrue('z is True', z)
+```
+
+This will call the relevant `TestCase` methods and write some output to `checks.log`:
+
+```
+test_method             check_name  assert_method   result  args
+TestThing.test_thing    x equals y  assertEqual     success (1, 1)
+TestThing.test_thing    z is True   assertTrue      failed  (False,)
+```
+
+IntegrationTest also defines the attribute `patches`, which in subclasses can be a tuple or list of
+`unittest.mock.patch` calls. These patches will have `__enter__` called on them on test setup, and `__exit__` on test
+teardown.
 
 #### ReportingAppIntegrationTest
 Subclass of `IntegrationTest` which can run a Docker image of

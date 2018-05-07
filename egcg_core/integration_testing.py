@@ -23,21 +23,21 @@ class WrappedFunc:
         if not isinstance(check_name, str):
             raise NameError('Incorrect call - check_name required')
 
-        msg = "%s.%s\t%s\t%s\t%s" % (
+        assertion_report = '%s.%s\t%s\t%s\t' % (
             self.test_case.__class__.__name__,
             self.test_case._testMethodName,
             check_name,
-            self.assert_func.__name__,
-            args
+            self.assert_func.__name__
         )
+        args_used = '\t' + str(args)
         if kwargs:
-            msg += ', with kwargs: %s' % kwargs
+            args_used += ' ' + str(kwargs)
 
         try:
             self.assert_func(*args, **kwargs)
-            self.log(msg + '\tsuccess')
+            self.log(assertion_report + 'success' + args_used)
         except AssertionError:
-            self.log(msg + '\tfailed')
+            self.log(assertion_report + 'failed' + args_used)
             raise
 
     @staticmethod
@@ -48,6 +48,7 @@ class WrappedFunc:
 
 class IntegrationTest(TestCase):
     """Contains some common functionality for patching, and quality-oriented assertion logging."""
+    _wrapped_func_blacklist = ('assertRaises', 'assertWarns', 'assertLogs', 'assertRaisesRegex', 'assertWarnsRegex')
     patches = ()
 
     def __init__(self, *args):
@@ -58,7 +59,7 @@ class IntegrationTest(TestCase):
         for attrname in dir(self.asserter):
             if attrname.startswith('assert'):
                 attr = getattr(self.asserter, attrname)
-                if callable(attr):
+                if callable(attr) and attrname not in self._wrapped_func_blacklist:
                     setattr(self, attrname, WrappedFunc(self, attr))
 
     def setUp(self):
@@ -85,7 +86,7 @@ class ReportingAppIntegrationTest(IntegrationTest):
         self.container_id = check_output(
             ['docker', 'run', '-d', cfg['reporting_app']['image_name'],
              cfg.query('reporting_app', 'branch', ret_default='master')]
-        ).decode()
+        ).decode().strip()
         assert self.container_id
         container_info = json.loads(check_output(['docker', 'inspect', self.container_id]).decode())[0]
         # for now, assume the container is running on the main 'bridge' network
@@ -93,7 +94,7 @@ class ReportingAppIntegrationTest(IntegrationTest):
         self.container_port = list(container_info['Config']['ExposedPorts'])[0].rstrip('/tcp')
         container_url = 'http://' + self.container_ip + ':' + self.container_port + '/api/0.1'
         rest_communication.default._baseurl = container_url
-        assert rest_communication.default.auth, "Need to specify authentication credentials in the tested app's config"
+        rest_communication.default._auth = (cfg['reporting_app']['username'], cfg['reporting_app']['password'])
         self._ping(container_url)
 
     def tearDown(self):

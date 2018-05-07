@@ -74,7 +74,8 @@ def main():
     if app_config_master_copy:
         app_config = os.path.join(os.getcwd(), 'app_config.yaml')
         shutil.copy(app_config_master_copy, app_config)
-        os.environ[args.app_config_env_var] = app_config
+        if args.app_config_env_var:
+            os.environ[args.app_config_env_var] = app_config
 
     sys.path.append(os.getcwd())
     pytest_args = [args.integration_test_target, '--tb=short']
@@ -93,8 +94,10 @@ def main():
         if args.n:
             pytest_args.extend(['-n', args.n])
 
+    checks_log = 'checks.log'
     start_time = integration_testing.now()
-    integration_testing.log('test_method\tcheck_name\tassert_method\targs\tresult')
+    with open(checks_log, 'w') as f:
+        f.write('test_method\tcheck_name\tassert_method\tresult\targs\n')
 
     s = StringIO()
     with redirect_stdout(s):
@@ -111,7 +114,6 @@ def main():
     )
 
     test_output += s.getvalue()
-    checks_log = 'checks.log'
     if os.path.isfile(checks_log):
         with open(checks_log, 'r') as f:
             checks = f.read()

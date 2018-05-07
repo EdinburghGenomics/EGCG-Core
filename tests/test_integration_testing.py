@@ -16,19 +16,19 @@ class TestIntegrationTesting(TestCase):
         if os.path.isfile('checks.log'):
             os.remove('checks.log')
 
-        w = integration_testing.WrappedFunc(self.assertEqual)
+        w = integration_testing.WrappedFunc(self, self.assertEqual)
         w('a check', 1, 1)
         with self.assertRaises(AssertionError):
             w('another check', 1, 2)
 
         with open('checks.log', 'r') as f:
-            assert f.readline() == "'a check' using assertEqual with args: (1, 1) - success\n"
-            assert f.readline() == "'another check' using assertEqual with args: (1, 2) - failed\n"
+            assert f.readline() == '%s.test_wrapped_func\ta check\tassertEqual\tsuccess\t(1, 1)\n' % self.__class__.__name__
+            assert f.readline() == '%s.test_wrapped_func\tanother check\tassertEqual\tfailed\t(1, 2)\n' % self.__class__.__name__
 
     def test_integration_test(self):
         t = integration_testing.IntegrationTest()
         t.patches = (patch('os.path.isdir', return_value=1337),)
-        for attr in ('assertEqual', 'assertRaises', 'assertTrue'):
+        for attr in ('assertEqual', 'assertTrue'):
             assert getattr(t, attr).assert_func == getattr(t.asserter, attr)
 
         wd = os.getcwd()
@@ -43,7 +43,7 @@ class TestIntegrationTesting(TestCase):
     @patch('egcg_core.integration_testing.check_output')
     def test_reporting_app_integration_test(self, mocked_check_output, mocked_sleep, mocked_get):
         mocked_check_output.side_effect = [
-            b'docker_id',
+            b'docker_id\n',
             (
                 b'[\n'
                 b'    {\n'
@@ -52,11 +52,12 @@ class TestIntegrationTesting(TestCase):
                 b'    }\n'
                 b']\n'
             ),
-            b'docker_id',
-            b'docker_id'
+            b'docker_id\n',
+            b'docker_id\n'
         ]
-        integration_testing.cfg.content = {'reporting_app': {'image_name': 'an_image'}}
-        integration_testing.rest_communication.default._auth = ('a_user', 'a_password')
+        integration_testing.cfg.content = {
+            'reporting_app': {'image_name': 'an_image', 'username': 'a_user', 'password': 'a_password'}
+        }
 
         t = integration_testing.ReportingAppIntegrationTest()
         t.setUp()
