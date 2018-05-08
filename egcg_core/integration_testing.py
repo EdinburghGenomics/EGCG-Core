@@ -1,12 +1,20 @@
 import json
 import requests
+from os import getenv
 from time import sleep
 from datetime import datetime
 from unittest import TestCase
 from egcg_core import config, rest_communication
 from subprocess import check_output
 
-cfg = config.Configuration()
+
+def get_cfg():
+    cfg = config.Configuration()
+    cfg_file = getenv('INTEGRATIONCONFIG')
+    if cfg_file:
+        cfg.load_config_file(cfg_file)
+
+    return cfg
 
 
 def now():
@@ -62,6 +70,8 @@ class IntegrationTest(TestCase):
                 if callable(attr) and attrname not in self._wrapped_func_blacklist:
                     setattr(self, attrname, WrappedFunc(self, attr))
 
+        self.cfg = get_cfg()
+
     def setUp(self):
         for p in self.patches:
             p.start()
@@ -84,8 +94,8 @@ class ReportingAppIntegrationTest(IntegrationTest):
         super().setUp()
 
         self.container_id = check_output(
-            ['docker', 'run', '-d', cfg['reporting_app']['image_name'],
-             cfg.query('reporting_app', 'branch', ret_default='master')]
+            ['docker', 'run', '-d', self.cfg['reporting_app']['image_name'],
+             self.cfg.query('reporting_app', 'branch', ret_default='master')]
         ).decode().strip()
         assert self.container_id
         container_info = json.loads(check_output(['docker', 'inspect', self.container_id]).decode())[0]
@@ -94,7 +104,7 @@ class ReportingAppIntegrationTest(IntegrationTest):
         self.container_port = list(container_info['Config']['ExposedPorts'])[0].rstrip('/tcp')
         container_url = 'http://' + self.container_ip + ':' + self.container_port + '/api/0.1'
         rest_communication.default._baseurl = container_url
-        rest_communication.default._auth = (cfg['reporting_app']['username'], cfg['reporting_app']['password'])
+        rest_communication.default._auth = (self.cfg['reporting_app']['username'], self.cfg['reporting_app']['password'])
         self._ping(container_url)
 
     def tearDown(self):

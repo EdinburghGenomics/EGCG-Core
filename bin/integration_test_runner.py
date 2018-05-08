@@ -28,10 +28,10 @@ def random_string(strlen=6):
 def main():
     a = argparse.ArgumentParser()
     g = a.add_mutually_exclusive_group(required=True)
-    g.add_argument('--local', help='Use a copy of a local directory for testing - must be a full path')
+    g.add_argument('--local', help='Use a copy of a local directory for testing - must be an absolute path')
     g.add_argument('--remote', help='Use a checked out Git repo for testing')
     a.add_argument('--branch', help='Checkout a branch in the working dir')
-    a.add_argument('--integration_cfg')
+    a.add_argument('--integration_cfg', help='Absolute path to an integration test config file')
     a.add_argument('--integration_test_target', default='integration_tests', help='Subdir in the working dir containing the integration tests')
     a.add_argument('--app_config')
     a.add_argument('--app_config_env_var')
@@ -49,7 +49,7 @@ def main():
 
     app_config_master_copy = resolve_path(args.app_config)
     if args.integration_cfg:
-        integration_testing.cfg.load_config_file(resolve_path(args.integration_cfg))
+        os.environ['INTEGRATIONCONFIG'] = args.integration_cfg
 
     run_dir = os.path.join(top_level, 'integration_test_%s' % random_string())
     os.mkdir(run_dir)
@@ -131,7 +131,9 @@ def main():
 
     if args.email:
         notifications.send_plain_text_email(
-            test_output, subject=checked_out_project + ' integration test', **integration_testing.cfg['notification']
+            test_output,
+            subject=checked_out_project + ' integration test',
+            **integration_testing.get_cfg()['notification']
         )
 
     if args.cleanup:
