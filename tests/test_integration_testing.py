@@ -2,7 +2,7 @@ import os
 import requests
 from unittest import TestCase
 from unittest.mock import Mock, patch
-from egcg_core import integration_testing
+from egcg_core import integration_testing, config
 
 
 class TestIntegrationTesting(TestCase):
@@ -40,8 +40,9 @@ class TestIntegrationTesting(TestCase):
 
     @patch('requests.get', side_effect=[requests.exceptions.ConnectionError, Mock()])
     @patch('egcg_core.integration_testing.sleep')
+    @patch('egcg_core.integration_testing.get_cfg')
     @patch('egcg_core.integration_testing.check_output')
-    def test_reporting_app_integration_test(self, mocked_check_output, mocked_sleep, mocked_get):
+    def test_reporting_app_integration_test(self, mocked_check_output, mocked_get_cfg, mocked_sleep, mocked_get):
         mocked_check_output.side_effect = [
             b'docker_id\n',
             (
@@ -55,9 +56,11 @@ class TestIntegrationTesting(TestCase):
             b'docker_id\n',
             b'docker_id\n'
         ]
-        integration_testing.cfg.content = {
+        fake_cfg = config.Configuration()
+        fake_cfg.content = {
             'reporting_app': {'image_name': 'an_image', 'username': 'a_user', 'password': 'a_password'}
         }
+        mocked_get_cfg.return_value = fake_cfg
 
         t = integration_testing.ReportingAppIntegrationTest()
         t.setUp()
