@@ -1,6 +1,12 @@
 Changelog for EGCG-Core
 ===========================
 
+0.9 (unreleased)
+----------------
+
+- Nothing changed yet.
+
+
 0.8.2 (2018-05-28)
 ------------------
 
