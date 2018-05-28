@@ -1,10 +1,10 @@
 Changelog for EGCG-Core
 ===========================
 
-0.9 (unreleased)
-----------------
+0.8.2 (2018-05-28)
+------------------
 
-- Nothing changed yet.
+- New constant to record number of Phix reads 
 
 
 0.8.1 (2018-02-09)
