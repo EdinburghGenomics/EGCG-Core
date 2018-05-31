@@ -30,15 +30,10 @@ def fake_request(method, url, **kwargs):
             raise Exception
         if 'data' in kwargs and check_if_nested(kwargs['data']):
             raise Exception
-    return FakeRestResponse(status_code=200, content=test_nested_request_content)
+    return FakeRestResponse(test_nested_request_content)
 
 
-patched_response = patch(
-    'requests.request',
-    side_effect=fake_request
-)
-
-
+patched_response = patch('requests.request', side_effect=fake_request)
 auth = ('a_user', 'a_password')
 
 
@@ -69,10 +64,10 @@ class TestRestCommunication(TestEGCG):
     def test_detect_files_in_json(self):
         json_no_files = {'k1': 'v1', 'k2': 'v2'}
         obs_files, obs_json = self.comm._detect_files_in_json(json_no_files)
-        file_path = os.path.join(self.assets_path, 'test_to_upload.txt')
         assert obs_files is None
         assert obs_json == json_no_files
 
+        file_path = os.path.join(self.assets_path, 'test_to_upload.txt')
         json_with_files = {'k1': 'v1', 'k2': ('file', file_path)}
         obs_files, obs_json = self.comm._detect_files_in_json(json_with_files)
         assert obs_files == {'k2': (file_path, b'test content', 'text/plain')}
@@ -96,9 +91,9 @@ class TestRestCommunication(TestEGCG):
 
     def test_get_documents_depaginate(self):
         docs = (
-            FakeRestResponse(content={'data': ['this', 'that'], '_links': {'next': {'href': 'an_endpoint?max_results=101&page=2'}}}),
-            FakeRestResponse(content={'data': ['other', 'another'], '_links': {'next': {'href': 'an_endpoint?max_results=101&page=3'}}}),
-            FakeRestResponse(content={'data': ['more', 'things'], '_links': {}})
+            FakeRestResponse({'data': ['this', 'that'], '_links': {'next': {'href': 'an_endpoint?max_results=101&page=2'}}}),
+            FakeRestResponse({'data': ['other', 'another'], '_links': {'next': {'href': 'an_endpoint?max_results=101&page=3'}}}),
+            FakeRestResponse({'data': ['more', 'things'], '_links': {}})
         )
         with patch(ppath('_req'), side_effect=docs) as mocked_req:
             assert self.comm.get_documents('an_endpoint', all_pages=True, max_results=101) == [
@@ -115,14 +110,14 @@ class TestRestCommunication(TestEGCG):
 
         docs = [
             FakeRestResponse(
-                content={
+                {
                     'data': ['data%s' % d],
                     '_links': {'next': {'href': 'an_endpoint?max_results=101&page=%s' % d}}
                 }
             )
             for d in range(1, 1200)
         ]
-        docs.append(FakeRestResponse(content={'data': ['last piece'], '_links': {}}))
+        docs.append(FakeRestResponse({'data': ['last piece'], '_links': {}}))
 
         with patch(ppath('_req'), side_effect=docs):
             ret = self.comm.get_documents('an_endpoint', all_pages=True, max_results=101)

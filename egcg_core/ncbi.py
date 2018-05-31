@@ -58,7 +58,7 @@ def _cache_species(query_species, taxid, scientific_name, common_name):
 
 def _fetch_from_eutils(species):
     """
-    Query NCBI taxomomy database to get the taxomoy id scientific name and common name
+    Query NCBI taxomomy database to get the taxonomy ID, scientific name and common name.
     Documentation available at http://www.ncbi.nlm.nih.gov/books/NBK25499/
     :param str species: A search term for esearch, e.g. Human, Mouse, etc.
     """

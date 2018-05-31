@@ -32,7 +32,7 @@ class EmailSender(AppLogger):
 
     def _try_send(self, msg, retries=3):
         """
-        Prepare a MIMEText message from body and diagnostics, and try to send a set number of times.
+        Attempt to send an email a set number of times.
         :param int retries: Which retry we're currently on
         :return: True if a message is sucessfully sent, otherwise False
         """
@@ -50,20 +50,20 @@ class EmailSender(AppLogger):
 
     def _build_email(self, **kwargs):
         """
-        Create a MIMEText or a MIMEMultipart email which can contain:
-        MIMEText formatted from plain text of Jinja templated html.
-        MIMEApplication containing attachments
-        :param dict kwargs: parameters used to create the email.
+        Create a MIMEText from plain text or Jinja2-formatted html and send by email. If attachments are provided, the
+        message will be a MIMEMultipart containing the MimeText message plus MIMEApplication attachments.
 
-        _build_email has two modes: plain text or html email
-        the following keyword args are useable for both:
+        _build_email has two modes: plain text and html. The following keyword args are useable for both:
           - email_subject: (str) override the EmailSender subject
           - email_sender: (str) override the EmailSender sender
           - email_recipients: (list) override the EmailSender recipients
-          - attachments: list of file path to attach to the email
-          in plain text mode, text_message (str) is required and contains the plain text to send in the email.
-          in html mode email_template (str) can be user to override the EmailSender email_template
-          All keyword args (including the one mentioned above) are passed to the Jinja template.
+          - attachments: list of file paths to attach to the email
+
+        In plain text mode:
+          - text_message (str) is required and contains the plain text to send in the email
+        In html mode:
+          - email_template (str) can be user to override the EmailSender email_template
+          - all other keyword args are passed to the Jinja template
         """
         email_template = kwargs.get('email_template', self.email_template)
         if email_template:
@@ -78,13 +78,10 @@ class EmailSender(AppLogger):
                 kwargs['attachments'] = [kwargs['attachments']]
             msg = MIMEMultipart()
             msg.attach(text)
-            for f in kwargs.get('attachments') or []:
-                with open(f, "rb") as fil:
-                    part = MIMEApplication(
-                        fil.read(),
-                        Name=basename(f)
-                    )
-                    part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
+            for attachment in kwargs['attachments']:
+                with open(attachment, 'rb') as f:
+                    part = MIMEApplication(f.read(), Name=basename(attachment))
+                    part['Content-Disposition'] = 'attachment; filename="%s"' % basename(attachment)
                     msg.attach(part)
         else:
             msg = text
@@ -130,7 +127,7 @@ class EmailNotification(Notification):
 
 
 def send_email(msg, mailhost, port, sender, recipients, subject, email_template=None, attachments=None, **kwargs):
-    warnings.warn("deprecated use send_plain_text_email or send_html_email instead", DeprecationWarning)
+    warnings.warn('send_email is deprecated - use send_plain_text_email or send_html_email instead', DeprecationWarning)
     if msg and not email_template:
         send_plain_text_email(msg, mailhost, port, sender, recipients, subject, attachments)
     elif email_template and not msg:

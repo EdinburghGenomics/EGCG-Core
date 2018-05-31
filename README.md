@@ -52,6 +52,7 @@ Contains convenience functions:
   given pattern, returns them.
 - find_file - Returns the first result from find_files.
 - str_join - Convenience function for calling str.join using `*args`.
+- query_dict - Drills down into a nested dict with a dot-notated query string
 
 
 ### app_logging
@@ -95,18 +96,13 @@ Config class. Implements `__getitem__` for dict-style square bracket querying; `
 the use of, e.g, `if x in cfg`; `get` as in `dict.get`; and `query` for drilling down into the dict, returning
 `None` if nothing is found.
 
-Uses `_find_config_file` to locate a file to read. Is constructed with a `cfg_search_path`, allowing it to
-search for config files in multiple possible locations, e.g. in the user's home or in a path specified in an
-environment variable. The first config file found gets used.
-
-
-It can also read config files containing multiple environments. For example:
+Is constructed with a list of possible files, and uses the first one it finds. Can also read config files containing
+multiple environments. For example:
 
 ```
-default:
-    this: 1
-    that: 2
-    other: 3
+this: 1
+that: 2
+other: 3
 
 testing:
     this: 1337
@@ -115,20 +111,21 @@ production:
     this: 1338
     that: 4
 ```
-Upon construction, or loading of a new config file, the class can read an environment variable telling it which 
-environment to use. It merges the `default` environment if it exists and the specified environment if it exists
-For example, a Configuration set to 'testing' will have `{'this': 1337, 'that': 2, 'other': 3}` in `self.content` 
-and one set to 'production' will have `{'this': 1338, 'that': 4, 'other': 3}`.
+Upon loading a config file, the class can read an environment variable telling it which environment to use. It will then
+merge the environment into `self.content`. For example, a Configuration set to 'testing' will have
+`{'this': 1337, 'that': 2, 'other': 3}`, and one set to 'production' will have `{'this': 1338, 'that': 4, 'other': 3}`.
 
 #### EnvConfiguration
-This class is an alias for Configuration for backward compatibility
+Backward compatibility only.
+
 
 ### constants
-Contains constants used in EGCG's reporting app. Includes dataset statuses and database keys/column names.
+Contains constants used in other EGCG projects, including dataset statuses and database keys/column names.
 
 
 ### exceptions
-Custom exceptions raised by the pipeline: EGCGError, LimsCommunicationError and ConfigError.
+Custom exceptions raised by the pipeline: EGCGError, ConfigError, RestCommunicationError, LimsCommunicationError and
+ArchivingError.
 
 
 ### rest_communication
@@ -180,3 +177,59 @@ files = [
 rest_communication.post_or_patch('endpoint', data, 'element_id')
 rest_communication.post_or_patch('endpoint', files, 'element_id')
 ```
+
+
+### integration_testing
+This is a library and runner script for quality-oriented testing.
+
+
+#### IntegrationTest
+Wraps most of `unittest.TestCase`'s assert methods (with the exception of methods that use the context manager, such as
+AssertRaises). Each wrapped assert method takes a string arg describing the assertion, and passes all other args to the
+corresponding `TestCase` method, logging the result of the test to `checks.log` in the working dir. For example:
+
+```python
+class TestThing(IntegrationTest):
+    def test_thing(self):
+        x = 1
+        y = 1
+        z = False
+        self.assertEqual('x equals y', x, y)
+        self.assertTrue('z is True', z)
+```
+
+This will call the relevant `TestCase` methods and write some output to `checks.log`:
+
+```
+test_method             check_name  assert_method   result  args
+TestThing.test_thing    x equals y  assertEqual     success (1, 1)
+TestThing.test_thing    z is True   assertTrue      failed  (False,)
+```
+
+IntegrationTest also defines the attribute `patches`, which in subclasses can be a tuple or list of
+`unittest.mock.patch` calls. These patches will have `__enter__` called on them on test setup, and `__exit__` on test
+teardown.
+
+#### ReportingAppIntegrationTest
+Subclass of `IntegrationTest` which can run a Docker image of
+[EGCG's reporting app](https://github.com/EdinburghGenomics/Reporting-App). On test setup, it starts an image from a
+specified Reporting-App branch with an empty database, stores the image's IP address to
+`rest_communication.default`, and waits for the image to become responsive. On teardown, it stops and removes the image.
+
+#### integration_test_runner
+The test runner is available in `bin` if running from source, or as an executable if installed. It does the following:
+
+- Sets up a uniquely-named test run dir and `cd`s into it
+- Takes a copy of the repo to test into the run dir (either from a local dir or remote Git repo) and `cd`s into it
+- Checks out a Git branch on the tested repo (optional)
+- Takes a copy of a config file for the repo and sets a config environment (optional)
+- Runs pytest in directory `integration_tests` by default, with args for coverage, collect-only, multiprocessing, etc.
+- Captures the output from pytest and `checks.log`, and logs it to a file, stdout and/or email as specified
+- Cleans up the test run dir
+
+The runner can use [pytest-xdist](https://pypi.org/project/pytest-xdist) to run tests in parallel, however this assumes
+that both the tested code and the tests themselves are thread-safe.
+
+Installing the test runner can be done via pip or with `python setup.py install`. If installing via setup.py on macOS,
+Python may have trouble communicating with PyPI and run into SSL errors. This can be fixed by pip-installing the
+certificate library `certifi`.
