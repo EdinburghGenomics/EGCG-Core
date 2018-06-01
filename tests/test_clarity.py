@@ -178,11 +178,6 @@ class TestClarity(TestEGCG):
         assert open(genotype_vcf).read() == 'some test content'
         os.remove(genotype_vcf)
 
-    @patched_clarity('get_sample', Mock(udf={'Yield for Quoted Coverage (Gb)': 3}))
-    def test_get_expected_yield_for_sample(self, mocked_get_sample):
-        assert clarity.get_expected_yield_for_sample('a_sample_id') == 3000000000
-        mocked_get_sample.assert_called_with('a_sample_id')
-
     @patched_lims('get_processes', ['a_run'])
     def test_get_run(self, mocked_lims):
         assert clarity.get_run('a_run_id') == 'a_run'

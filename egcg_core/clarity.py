@@ -206,19 +206,6 @@ def get_sample_genotype(sample_name, output_file_name):
             app_logger.warning('Cannot download genotype results for %s', sample_name)
 
 
-def get_expected_yield_for_sample(sample_name):
-    """
-    Query the LIMS and return the number of bases expected for a sample
-    :param sample_name: the sample name
-    :return: number of bases
-    """
-    sample = get_sample(sample_name)
-    if sample:
-        nb_gb = sample.udf.get('Yield for Quoted Coverage (Gb)')
-        if nb_gb:
-            return nb_gb * 1000000000
-
-
 def get_plate_id_and_well(sample_name):
     sample = get_sample(sample_name)
     if sample:

@@ -36,6 +36,9 @@ def get_species_name(query_species):
         q, taxid, scientific_name, common_name = local_query
     else:
         taxid, scientific_name, common_name = _fetch_from_eutils(query_species)
+        if taxid is None:
+            return None
+
         _cache_species(query_species, taxid, scientific_name, common_name)
 
     return scientific_name

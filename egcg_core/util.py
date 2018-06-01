@@ -102,20 +102,20 @@ def move_dir(src_dir, dest_dir):
     return 0
 
 
-def query_dict(data, query_string):
+def query_dict(data, query_string, ret_default=None):
     """
     Drill down into a dict using dot notation, e.g. query_dict({'this': {'that': 'other'}}, 'this.that'}).
     :param dict data:
     :param str query_string:
+    :param ret_default:
     """
     _data = data.copy()
 
     for q in query_string.split('.'):
         d = _data.get(q)
-        if d is None:
-            return None
-
-        else:
+        if d is not None:
             _data = d
+        else:
+            return ret_default
 
     return _data

@@ -1,6 +1,7 @@
 import os
 import json
 import pytest
+from requests import Session
 from unittest.mock import patch
 from tests import FakeRestResponse, TestEGCG
 from egcg_core import rest_communication
@@ -33,13 +34,24 @@ def fake_request(method, url, **kwargs):
     return FakeRestResponse(test_nested_request_content)
 
 
-patched_response = patch('requests.request', side_effect=fake_request)
+patched_request = patch.object(Session, 'request', side_effect=fake_request)
 auth = ('a_user', 'a_password')
 
 
 class TestRestCommunication(TestEGCG):
     def setUp(self):
         self.comm = rest_communication.Communicator(auth=auth, baseurl='http://localhost:4999/api/0.1')
+
+    def test_begin_session(self):
+        s = self.comm.begin_session()
+        assert s.adapters['http://'] is s.adapters['https://']
+        assert s.auth == auth
+        assert s.params == {}
+
+        hashed_token = '{"some": "hashed"}.tokenauthentication'
+        self.comm._auth = hashed_token
+        s = self.comm.begin_session()
+        assert s.headers['Authorization'] == 'Token ' + hashed_token
 
     def test_api_url(self):
         assert self.comm.api_url('an_endpoint') == rest_url('an_endpoint')
@@ -81,13 +93,27 @@ class TestRestCommunication(TestEGCG):
         ]
         assert obs_json == [{'k1': 'v1'}, {'k1': 'v1'}]
 
-    @patched_response
-    def test_req(self, mocked_response):
+    @patched_request
+    def test_req(self, mocked_request):
         json_content = ['some', {'test': 'json'}]
-        response = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
-        assert response.status_code == 200
-        assert json.loads(response.content.decode('utf-8')) == response.json() == test_nested_request_content
-        mocked_response.assert_called_with('METHOD', rest_url(test_endpoint), auth=auth, json=json_content)
+        for i in range(4):
+            response = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+            assert response.status_code == 200
+            assert json.loads(response.content.decode('utf-8')) == response.json() == test_nested_request_content
+            mocked_request.assert_called_with('METHOD', rest_url(test_endpoint), json=json_content)
+
+    @patch.object(Session, 'close')
+    @patched_request
+    def test_context_manager(self, mocked_request, mocked_close):
+        json_content = ['some', {'test': 'json'}]
+        with self.comm.session:
+            for i in range(4):
+                response = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+                assert response.status_code == 200
+                assert response.json() == test_nested_request_content
+                mocked_request.assert_called_with('METHOD', rest_url(test_endpoint), json=json_content)
+
+        assert mocked_close.call_count == 1
 
     def test_get_documents_depaginate(self):
         docs = (
@@ -123,34 +149,33 @@ class TestRestCommunication(TestEGCG):
             ret = self.comm.get_documents('an_endpoint', all_pages=True, max_results=101)
             assert len(ret) == 1200
 
-    @patched_response
-    def test_get_content(self, mocked_response):
+    @patched_request
+    def test_get_content(self, mocked_request):
         data = self.comm.get_content(test_endpoint, max_results=100, where={'a_field': 'thing'})
         assert data == test_nested_request_content
-        assert mocked_response.call_args[0][1].startswith(rest_url(test_endpoint))
-        assert mocked_response.call_args[1] == {
-            'auth': ('a_user', 'a_password'),
-            'params': {'max_results': 100, 'where': '{"a_field": "thing"}', 'page': 1}
-        }
+        mocked_request.assert_called_with(
+            'GET',
+            rest_url(test_endpoint),
+            params={'max_results': 100, 'where': '{"a_field": "thing"}', 'page': 1}
+        )
 
     def test_get_documents(self):
-        with patched_response:
+        with patched_request:
             data = self.comm.get_documents(test_endpoint, max_results=100, where={'a_field': 'thing'})
             assert data == test_nested_request_content['data']
 
     def test_get_document(self):
         expected = test_nested_request_content['data'][0]
-        with patched_response:
+        with patched_request:
             observed = self.comm.get_document(test_endpoint, max_results=100, where={'a_field': 'thing'})
             assert observed == expected
 
-    @patched_response
-    def test_post_entry(self, mocked_response):
+    @patched_request
+    def test_post_entry(self, mocked_request):
         self.comm.post_entry(test_endpoint, payload=test_nested_request_content)
-        mocked_response.assert_called_with(
+        mocked_request.assert_called_with(
             'POST',
             rest_url(test_endpoint),
-            auth=auth,
             json=test_nested_request_content,
             files=None
         )
@@ -158,39 +183,35 @@ class TestRestCommunication(TestEGCG):
         test_request_content_plus_files = dict(test_flat_request_content)
         test_request_content_plus_files['f'] = ('file', file_path)
         self.comm.post_entry(test_endpoint, payload=test_request_content_plus_files)
-        mocked_response.assert_called_with(
+        mocked_request.assert_called_with(
             'POST',
             rest_url(test_endpoint),
-            auth=auth,
             data=test_flat_request_content,
             files={'f': (file_path, b'test content', 'text/plain')}
         )
 
         self.comm.post_entry(test_endpoint, payload=test_flat_request_content, use_data=True)
-        mocked_response.assert_called_with(
+        mocked_request.assert_called_with(
             'POST',
             rest_url(test_endpoint),
-            auth=auth,
             data=test_flat_request_content,
             files=None
         )
 
         self.comm.post_entry(test_endpoint, payload=test_request_content_plus_files, use_data=True)
-        mocked_response.assert_called_with(
+        mocked_request.assert_called_with(
             'POST',
             rest_url(test_endpoint),
-            auth=auth,
             data=test_flat_request_content,
             files={'f': (file_path, b'test content', 'text/plain')}
         )
 
-    @patched_response
-    def test_put_entry(self, mocked_response):
+    @patched_request
+    def test_put_entry(self, mocked_request):
         self.comm.put_entry(test_endpoint, 'an_element_id', payload=test_nested_request_content)
-        mocked_response.assert_called_with(
+        mocked_request.assert_called_with(
             'PUT',
             rest_url(test_endpoint) + 'an_element_id',
-            auth=auth,
             json=test_nested_request_content,
             files=None
         )
@@ -199,17 +220,16 @@ class TestRestCommunication(TestEGCG):
         test_request_content_plus_files = dict(test_flat_request_content)
         test_request_content_plus_files['f'] = ('file', file_path)
         self.comm.put_entry(test_endpoint, 'an_element_id', payload=test_request_content_plus_files)
-        mocked_response.assert_called_with(
+        mocked_request.assert_called_with(
             'PUT',
             rest_url(test_endpoint) + 'an_element_id',
-            auth=auth,
             data=test_flat_request_content,
             files={'f': (file_path, b'test content', 'text/plain')}
         )
 
     @patch(ppath('get_document'), return_value=test_patch_document)
-    @patched_response
-    def test_patch_entry(self, mocked_response, mocked_get_doc):
+    @patched_request
+    def test_patch_entry(self, mocked_request, mocked_get_doc):
         patching_payload = {'list_to_update': ['another']}
         self.comm.patch_entry(
             test_endpoint,
@@ -220,25 +240,23 @@ class TestRestCommunication(TestEGCG):
         )
 
         mocked_get_doc.assert_called_with(test_endpoint, where={'uid': 'a_unique_id'})
-        mocked_response.assert_called_with(
+        mocked_request.assert_called_with(
             'PATCH',
             rest_url(test_endpoint) + '1337',
             headers={'If-Match': 1234567},
-            auth=auth,
             json={'list_to_update': ['this', 'that', 'other', 'another']},
             files=None
         )
 
     @patch(ppath('get_document'), return_value=test_patch_document)
-    @patched_response
-    def test_auth_token_and_if_match(self, mocked_response, mocked_get_doc):
-        self.comm._auth = 'an_auth_token'
+    @patched_request
+    def test_if_match(self, mocked_request, mocked_get_doc):
         self.comm.patch_entry(test_endpoint, {'this': 'that'}, 'uid', 'a_unique_id')
         mocked_get_doc.assert_called_with(test_endpoint, where={'uid': 'a_unique_id'})
-        mocked_response.assert_called_with(
+        mocked_request.assert_called_with(
             'PATCH',
             rest_url(test_endpoint) + '1337',
-            headers={'If-Match': 1234567, 'Authorization': 'Token an_auth_token'},
+            headers={'If-Match': 1234567},
             json={'this': 'that'},
             files=None
         )
@@ -275,17 +293,6 @@ class TestRestCommunication(TestEGCG):
             )
             mget.assert_called_with('an_endpoint', where={'uid': '1337'})
             mpost.assert_called_with('an_endpoint', test_post_or_patch_payload)
-
-    def test_token_auth(self):
-        hashed_token = '{"some": "hashed"}.tokenauthentication'
-        self.comm._auth = hashed_token
-        with patched_response as p:
-            self.comm._req('GET', self.comm.baseurl + 'an_endpoint')
-            p.assert_called_with(
-                'GET',
-                self.comm.baseurl + 'an_endpoint',
-                headers={'Authorization': 'Token ' + hashed_token}
-            )
 
 
 def test_default():

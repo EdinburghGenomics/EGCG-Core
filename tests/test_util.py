@@ -132,3 +132,4 @@ def test_query_dict():
     assert util.query_dict(data, 'this') == {'that': 'other'}
     assert util.query_dict(data, 'this.that') == 'other'
     assert util.query_dict(data, 'nonexistent') is None
+    assert util.query_dict(data, 'nonexistent', ret_default='things') == 'things'
