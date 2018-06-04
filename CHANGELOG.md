@@ -4,7 +4,10 @@ Changelog for EGCG-Core
 0.9 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Breaking change: removed `clarity.get_expected_yield_for_sample`
+- Catching notification failures
+- Added retries to `rest_communication`
+- Added log warnings to `util.find_file`
 
 
 0.8.2 (2018-05-28)

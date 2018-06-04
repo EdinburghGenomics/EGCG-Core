@@ -26,7 +26,10 @@ def find_files(*path_parts):
 
 def find_file(*path_parts):
     files = find_files(*path_parts)
-    if files:
+    nfiles = len(files)
+    if nfiles > 1:
+        app_logger.warning('Searched pattern %s for one file, but got %s', path_parts, nfiles)
+    elif nfiles == 1:
         return files[0]
 
 

@@ -2,8 +2,9 @@ import hashlib
 from os import makedirs, symlink
 from shutil import rmtree
 from os.path import join, basename
-from tests import TestEGCG
+from unittest.mock import patch
 from egcg_core import util
+from tests import TestEGCG
 
 fastq_dir = join(TestEGCG.assets_path, 'fastqs')
 
@@ -13,8 +14,14 @@ def test_find_files():
     assert util.find_files(TestEGCG.assets_path, 'ftest*.txt') == expected
 
 
-def test_find_file():
+@patch('logging.Logger.warning')
+def test_find_file(mocked_log):
     assert util.find_file(TestEGCG.assets_path, 'ftest.txt') == join(TestEGCG.assets_path, 'ftest.txt')
+    assert util.find_file(TestEGCG.assets_path, 'ftest_.txt') is None
+    assert util.find_file(TestEGCG.assets_path, 'ftest*.txt') is None
+    mocked_log.assert_called_with(
+        'Searched pattern %s for one file, but got %s', (TestEGCG.assets_path, 'ftest*.txt'), 2
+    )
 
 
 def test_str_join():
@@ -87,10 +94,10 @@ class TestMoveDir(TestEGCG):
         self._create_test_file(join(self.test_dir, 'exists', 'ftest.txt'), 'another file')
 
     def tearDown(self):
-        rmtree(util.find_file(self.test_dir, 'to'))
-        rmtree(util.find_file(self.test_dir, 'from'))
-        rmtree(util.find_file(self.test_dir, 'exists'))
-        rmtree(util.find_file(self.test_dir, 'external'))
+        for base in ('to', 'from', 'exists', 'external'):
+            f = util.find_file(self.test_dir, base)
+            if f:
+                rmtree(f)
 
     def test_move_dir(self):
         frm = join(self.test_dir, 'from')
@@ -108,7 +115,7 @@ class TestMoveDir(TestEGCG):
 
         assert util.find_file(to, 'external_renamed.txt')
 
-    def _move_dir_exists(self):
+    def test_move_dir_exists(self):
         frm = join(self.test_dir, 'from')
         to = join(self.test_dir, 'exists')
         md5_from1 = self._md5(join(frm, 'ftest.txt'))
