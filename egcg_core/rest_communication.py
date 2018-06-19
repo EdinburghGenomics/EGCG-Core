@@ -43,8 +43,7 @@ class Communicator(AppLogger):
     @staticmethod
     def serialise(queries):
         serialised_queries = {}
-        for k in sorted(queries):
-            v = queries[k]
+        for k, v in queries.items():
             serialised_queries[k] = json.dumps(v) if isinstance(v, dict) else v
         return serialised_queries
 

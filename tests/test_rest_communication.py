@@ -127,9 +127,7 @@ class TestRestCommunication(TestEGCG):
         with self.assertRaises(RestCommunicationError) as e:
             self.comm.get_document('an_endpoint')
 
-        mocked_log.assert_called_with(
-            "a method a url ({'params': {'max_results': 100, 'page': 1}}) -> {}. Status code 500. Reason: a reason"
-        )
+        assert mocked_log.call_args[0][0].endswith('Status code 500. Reason: a reason')
         assert str(e.exception) == 'Encountered a 500 status code: a reason'
         self.comm.lock.acquire.assert_called_once()
         self.comm.lock.release.assert_called_once()  # exception raised, but lock still released
