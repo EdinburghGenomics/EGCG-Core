@@ -1,8 +1,7 @@
 import os
 import json
-import pytest
 from requests import Session
-from unittest.mock import patch
+from unittest.mock import Mock, patch, call
 from tests import FakeRestResponse, TestEGCG
 from egcg_core import rest_communication
 from egcg_core.util import check_if_nested
@@ -11,10 +10,6 @@ from egcg_core.exceptions import RestCommunicationError
 
 def rest_url(endpoint):
     return 'http://localhost:4999/api/0.1/' + endpoint + '/'
-
-
-def ppath(extension):
-    return 'egcg_core.rest_communication.Communicator.' + extension
 
 
 test_endpoint = 'an_endpoint'
@@ -65,13 +60,13 @@ class TestRestCommunication(TestEGCG):
             'this': 'that', 'other': '{"another":"more"}', 'things': '1'
         }
 
-        with pytest.raises(RestCommunicationError) as e:
+        with self.assertRaises(RestCommunicationError) as e:
             self.comm._parse_query_string(dodgy_query_string)
-            assert str(e) == 'Bad query string: ' + dodgy_query_string
+            assert str(e.exception) == 'Bad query string: ' + dodgy_query_string
 
-        with pytest.raises(RestCommunicationError) as e2:
+        with self.assertRaises(RestCommunicationError) as e2:
             self.comm._parse_query_string(query_string, requires=['thangs'])
-            assert str(e2) == query_string + " did not contain all required fields: ['thangs']"
+            assert str(e2.exception) == query_string + " did not contain all required fields: ['thangs']"
 
     def test_detect_files_in_json(self):
         json_no_files = {'k1': 'v1', 'k2': 'v2'}
@@ -102,37 +97,63 @@ class TestRestCommunication(TestEGCG):
             assert json.loads(response.content.decode('utf-8')) == response.json() == test_nested_request_content
             mocked_request.assert_called_with('METHOD', rest_url(test_endpoint), json=json_content)
 
-    @patch.object(Session, 'close')
+    @patch.object(Session, '__exit__')
+    @patch.object(Session, '__enter__')
     @patched_request
-    def test_context_manager(self, mocked_request, mocked_close):
+    def test_context_manager(self, mocked_request, mocked_enter, mocked_exit):
         json_content = ['some', {'test': 'json'}]
         with self.comm.session:
-            for i in range(4):
+            mocked_enter.assert_called_once()
+            mocked_exit.assert_not_called()
+            for i in range(4):  # multiple calls
                 response = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
                 assert response.status_code == 200
                 assert response.json() == test_nested_request_content
                 mocked_request.assert_called_with('METHOD', rest_url(test_endpoint), json=json_content)
 
-        assert mocked_close.call_count == 1
+        assert mocked_request.call_count == 4
+        mocked_exit.assert_called_once()
 
-    def test_get_documents_depaginate(self):
-        docs = (
+    @patch.object(rest_communication.Communicator, 'error')
+    @patch.object(Session, 'request')
+    def test_communication_error(self, mocked_req, mocked_log):
+        response = FakeRestResponse({})
+        response.status_code = 500
+        mocked_req.return_value = response
+        self.comm.lock = Mock()
+        self.comm.lock.acquire.assert_not_called()
+        self.comm.lock.release.assert_not_called()
+
+        with self.assertRaises(RestCommunicationError) as e:
+            self.comm.get_document('an_endpoint')
+
+        mocked_log.assert_called_with(
+            "a method a url ({'params': {'max_results': 100, 'page': 1}}) -> {}. Status code 500. Reason: a reason"
+        )
+        assert str(e.exception) == 'Encountered a 500 status code: a reason'
+        self.comm.lock.acquire.assert_called_once()
+        self.comm.lock.release.assert_called_once()  # exception raised, but lock still released
+
+    @patch.object(rest_communication.Communicator, '_req')
+    def test_get_documents_depaginate(self, mocked_req):
+        mocked_req.side_effect = (
             FakeRestResponse({'data': ['this', 'that'], '_links': {'next': {'href': 'an_endpoint?max_results=101&page=2'}}}),
             FakeRestResponse({'data': ['other', 'another'], '_links': {'next': {'href': 'an_endpoint?max_results=101&page=3'}}}),
             FakeRestResponse({'data': ['more', 'things'], '_links': {}})
         )
-        with patch(ppath('_req'), side_effect=docs) as mocked_req:
-            assert self.comm.get_documents('an_endpoint', all_pages=True, max_results=101) == [
-                'this', 'that', 'other', 'another', 'more', 'things'
-            ]
-            assert all([a[0][1].startswith(rest_url('an_endpoint')) for a in mocked_req.call_args_list])
-            assert [a[1] for a in mocked_req.call_args_list] == [
+
+        assert self.comm.get_documents('an_endpoint', all_pages=True, max_results=101) == [
+            'this', 'that', 'other', 'another', 'more', 'things'
+        ]
+        mocked_req.assert_has_calls(
+            (
                 # Communicator.get_content passes ints
-                {'params': {'page': 1, 'max_results': 101}, 'quiet': False},
+                call('GET', rest_url('an_endpoint'), params={'page': 1, 'max_results': 101}, quiet=False),
                 # url parsing passes strings, but requests removes the quotes anyway
-                {'params': {'page': '2', 'max_results': '101'}, 'quiet': False},
-                {'params': {'page': '3', 'max_results': '101'}, 'quiet': False}
-            ]
+                call('GET', rest_url('an_endpoint'), params={'page': '2', 'max_results': '101'}, quiet=False),
+                call('GET', rest_url('an_endpoint'), params={'page': '3', 'max_results': '101'}, quiet=False)
+            )
+        )
 
         docs = [
             FakeRestResponse(
@@ -145,9 +166,9 @@ class TestRestCommunication(TestEGCG):
         ]
         docs.append(FakeRestResponse({'data': ['last piece'], '_links': {}}))
 
-        with patch(ppath('_req'), side_effect=docs):
-            ret = self.comm.get_documents('an_endpoint', all_pages=True, max_results=101)
-            assert len(ret) == 1200
+        mocked_req.side_effect = docs
+        ret = self.comm.get_documents('an_endpoint', all_pages=True, max_results=101)
+        assert len(ret) == 1200
 
     @patched_request
     def test_get_content(self, mocked_request):
@@ -227,7 +248,7 @@ class TestRestCommunication(TestEGCG):
             files={'f': (file_path, b'test content', 'text/plain')}
         )
 
-    @patch(ppath('get_document'), return_value=test_patch_document)
+    @patch.object(rest_communication.Communicator, 'get_document', return_value=test_patch_document)
     @patched_request
     def test_patch_entry(self, mocked_request, mocked_get_doc):
         patching_payload = {'list_to_update': ['another']}
@@ -248,7 +269,7 @@ class TestRestCommunication(TestEGCG):
             files=None
         )
 
-    @patch(ppath('get_document'), return_value=test_patch_document)
+    @patch.object(rest_communication.Communicator, 'get_document', return_value=test_patch_document)
     @patched_request
     def test_if_match(self, mocked_request, mocked_get_doc):
         self.comm.patch_entry(test_endpoint, {'this': 'that'}, 'uid', 'a_unique_id')
@@ -261,38 +282,37 @@ class TestRestCommunication(TestEGCG):
             files=None
         )
 
-    def test_post_or_patch(self):
+    @patch.object(rest_communication.Communicator, 'post_entry', return_value=True)
+    @patch.object(rest_communication.Communicator, '_patch_entry', return_value=True)
+    @patch.object(rest_communication.Communicator, 'get_document')
+    def test_post_or_patch(self, mocked_get, mocked_patch, mocked_post):
         test_post_or_patch_payload = {'uid': '1337', 'list_to_update': ['more'], 'another_field': 'that'}
         test_post_or_patch_payload_no_uid = {'list_to_update': ['more'], 'another_field': 'that'}
         test_post_or_patch_doc = {
             'uid': 'a_uid', '_id': '1337', '_etag': 1234567, 'list_to_update': ['things'], 'another_field': 'this'
         }
-        patched_post = patch(ppath('post_entry'), return_value=True)
-        patched_patch = patch(ppath('_patch_entry'), return_value=True)
-        patched_get = patch(ppath('get_document'), return_value=test_post_or_patch_doc)
-        patched_get_none = patch(ppath('get_document'), return_value=None)
+        mocked_get.return_value = test_post_or_patch_doc
 
-        with patched_get as mget, patched_patch as mpatch:
-            self.comm.post_or_patch(
-                'an_endpoint',
-                [test_post_or_patch_payload],
-                id_field='uid',
-                update_lists=['list_to_update']
-            )
-            mget.assert_called_with('an_endpoint', where={'uid': '1337'})
-            mpatch.assert_called_with(
-                'an_endpoint',
-                test_post_or_patch_doc,
-                test_post_or_patch_payload_no_uid,
-                ['list_to_update']
-            )
+        self.comm.post_or_patch(
+            'an_endpoint',
+            [test_post_or_patch_payload],
+            id_field='uid',
+            update_lists=['list_to_update']
+        )
+        mocked_get.assert_called_with('an_endpoint', where={'uid': '1337'})
+        mocked_patch.assert_called_with(
+            'an_endpoint',
+            test_post_or_patch_doc,
+            test_post_or_patch_payload_no_uid,
+            ['list_to_update']
+        )
 
-        with patched_get_none as mget, patched_post as mpost:
-            self.comm.post_or_patch(
-                'an_endpoint', [test_post_or_patch_payload], id_field='uid', update_lists=['list_to_update']
-            )
-            mget.assert_called_with('an_endpoint', where={'uid': '1337'})
-            mpost.assert_called_with('an_endpoint', test_post_or_patch_payload)
+        mocked_get.return_value = None
+        self.comm.post_or_patch(
+            'an_endpoint', [test_post_or_patch_payload], id_field='uid', update_lists=['list_to_update']
+        )
+        mocked_get.assert_called_with('an_endpoint', where={'uid': '1337'})
+        mocked_post.assert_called_with('an_endpoint', test_post_or_patch_payload)
 
 
 def test_default():

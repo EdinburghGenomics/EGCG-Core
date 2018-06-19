@@ -2,6 +2,7 @@ import json
 import mimetypes
 from urllib.parse import urljoin
 import requests
+from multiprocessing import Lock
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from egcg_core.config import cfg
@@ -17,7 +18,8 @@ class Communicator(AppLogger):
         self._baseurl = baseurl
         self._auth = auth
         self.retries = retries
-        self.session = self.begin_session()
+        self._session = None
+        self.lock = Lock()
 
     def begin_session(self):
         s = requests.Session()
@@ -31,6 +33,12 @@ class Communicator(AppLogger):
             s.headers.update({'Authorization': 'Token %s' % self.auth})
 
         return s
+
+    @property
+    def session(self):
+        if self._session is None:
+            self._session = self.begin_session()
+        return self._session
 
     @staticmethod
     def serialise(queries):
@@ -128,6 +136,7 @@ class Communicator(AppLogger):
                 raise RestCommunicationError('Cannot upload files and nested json in one query')
             kwargs['data'] = kwargs.pop('json')
 
+        self.lock.acquire()
         r = self.session.request(method, url, **kwargs)
 
         kwargs.pop('files', None)
@@ -135,13 +144,17 @@ class Communicator(AppLogger):
         report = '%s %s (%s) -> %s. Status code %s. Reason: %s' % (
             r.request.method, r.request.path_url, kwargs, r.content.decode('utf-8'), r.status_code, r.reason
         )
+
         if r.status_code in self.successful_statuses:
             if not quiet:
                 self.debug(report)
+
+            self.lock.release()
+            return r
         else:
             self.error(report)
+            self.lock.release()
             raise RestCommunicationError('Encountered a %s status code: %s' % (r.status_code, r.reason))
-        return r
 
     def get_content(self, endpoint, paginate=True, quiet=False, **query_args):
         if paginate:
