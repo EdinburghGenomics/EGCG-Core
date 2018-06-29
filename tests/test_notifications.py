@@ -52,6 +52,22 @@ class TestNotificationCentre(TestEGCG):
         for name, s in self.notification_centre.subscribers.items():
             s.notify.assert_called_with('a message')
 
+    @patch.object(n.NotificationCentre, 'critical')
+    def test_notify_failure(self, mocked_log):
+        self.notification_centre.subscribers = {
+            'asana': Mock(notify=Mock(side_effect=EGCGError('Something broke'))),
+            'email': Mock(notify=Mock(side_effect=ValueError('Something else broke')))
+        }
+        with self.assertRaises(EGCGError) as e:
+            self.notification_centre.notify('a message', ('asana', 'email'))
+
+        mocked_log.assert_called()
+        assert str(e.exception) == (
+            'Encountered the following errors during notification: '
+            'EGCGError: Something broke, '
+            'ValueError: Something else broke'
+        )
+
 
 class TestLogNotification(TestEGCG):
     def setUp(self):

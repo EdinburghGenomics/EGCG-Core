@@ -71,14 +71,20 @@ def test_cache():
     reset_cache()
 
 
-def test_get_species_name():
-    fetch = 'egcg_core.ncbi._fetch_from_eutils'
-    assert fetch_from_cache('a species') is None
-    with patch(fetch, return_value=(None, None, None)):
-        assert ncbi.get_species_name('a species') is None
-        assert fetch_from_cache('a species') is None
+@patch('egcg_core.ncbi._fetch_from_eutils')
+def test_get_species_name(mocked_fetch):
+    for table in ('species', 'aliases'):
+        ncbi.cursor.execute('SELECT * FROM ' + table)
+        assert ncbi.cursor.fetchall() == []
+
+    mocked_fetch.return_value = (None, None, None)
+    assert ncbi.get_species_name('a species') is None
+    for table in ('species', 'aliases'):
+        ncbi.cursor.execute('SELECT * FROM ' + table)
+        assert ncbi.cursor.fetchall() == []
+
     reset_cache()
-    with patch(fetch, return_value=('1337', 'Scientific name', 'a species')):
-        assert ncbi.get_species_name('a species') == 'Scientific name'
-        assert fetch_from_cache('a species') == ('a species', '1337', 'Scientific name', 'a species')
+    mocked_fetch.return_value = ('1337', 'Scientific name', 'a species')
+    assert ncbi.get_species_name('a species') == 'Scientific name'
+    assert fetch_from_cache('a species') == ('a species', '1337', 'Scientific name', 'a species')
     reset_cache()

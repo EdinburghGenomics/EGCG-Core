@@ -1,7 +1,10 @@
 import json
 import mimetypes
-import requests
 from urllib.parse import urljoin
+import requests
+from multiprocessing import Lock
+from requests.packages.urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 from egcg_core.config import cfg
 from egcg_core.app_logging import AppLogger
 from egcg_core.exceptions import RestCommunicationError
@@ -11,9 +14,31 @@ from egcg_core.util import check_if_nested
 class Communicator(AppLogger):
     successful_statuses = (200, 201, 202, 204)
 
-    def __init__(self, auth=None, baseurl=None):
+    def __init__(self, auth=None, baseurl=None, retries=5):
         self._baseurl = baseurl
         self._auth = auth
+        self.retries = retries
+        self._session = None
+        self.lock = Lock()
+
+    def begin_session(self):
+        s = requests.Session()
+        adapter = HTTPAdapter(max_retries=Retry(self.retries, self.retries, self.retries, backoff_factor=0.2))
+        s.mount('http://', adapter)
+        s.mount('https://', adapter)
+
+        if isinstance(self.auth, tuple):
+            s.auth = self.auth
+        elif isinstance(self.auth, str):
+            s.headers.update({'Authorization': 'Token %s' % self.auth})
+
+        return s
+
+    @property
+    def session(self):
+        if self._session is None:
+            self._session = self.begin_session()
+        return self._session
 
     @staticmethod
     def serialise(queries):
@@ -103,11 +128,6 @@ class Communicator(AppLogger):
         return query
 
     def _req(self, method, url, quiet=False, **kwargs):
-        if isinstance(self.auth, tuple):
-            kwargs['auth'] = self.auth
-        elif isinstance(self.auth, str):
-            kwargs['headers'] = dict(kwargs.get('headers', {}), Authorization='Token %s' % self.auth)
-
         # can't upload json and files at the same time, so we need to move the json parameter to data
         # data can't upload complex structures that would require json encoding.
         # this means we can't upload data with nested lists/dicts at the same time as files
@@ -116,22 +136,25 @@ class Communicator(AppLogger):
                 raise RestCommunicationError('Cannot upload files and nested json in one query')
             kwargs['data'] = kwargs.pop('json')
 
-        r = requests.request(method, url, **kwargs)
+        self.lock.acquire()
+        r = self.session.request(method, url, **kwargs)
 
-        kwargs.pop('auth', None)
-        kwargs.pop('headers', None)
         kwargs.pop('files', None)
         # e.g: 'POST <url> ({"some": "args"}) -> {"some": "content"}. Status code 201. Reason: CREATED
         report = '%s %s (%s) -> %s. Status code %s. Reason: %s' % (
             r.request.method, r.request.path_url, kwargs, r.content.decode('utf-8'), r.status_code, r.reason
         )
+
         if r.status_code in self.successful_statuses:
             if not quiet:
                 self.debug(report)
+
+            self.lock.release()
+            return r
         else:
             self.error(report)
+            self.lock.release()
             raise RestCommunicationError('Encountered a %s status code: %s' % (r.status_code, r.reason))
-        return r
 
     def get_content(self, endpoint, paginate=True, quiet=False, **query_args):
         if paginate:
