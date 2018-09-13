@@ -98,6 +98,11 @@ class ReportingAppIntegrationTest(IntegrationTest):
              self.cfg.query('reporting_app', 'branch', ret_default='master')]
         ).decode().strip()
         assert self.container_id
+
+        container_basename = self.cfg.query('reporting_app', 'container_basename')
+        if container_basename:
+            check_output(['docker', 'rename', self.container_id, container_basename + '_' + self.container_id[:12]])
+
         container_info = json.loads(check_output(['docker', 'inspect', self.container_id]).decode())[0]
         # for now, assume the container is running on the main 'bridge' network
         self.container_ip = container_info['NetworkSettings']['Networks']['bridge']['IPAddress']
@@ -112,7 +117,7 @@ class ReportingAppIntegrationTest(IntegrationTest):
 
         assert self.container_id
         check_output(['docker', 'stop', self.container_id])
-        check_output(['docker', 'rm', self.container_id])
+        check_output(['docker', 'rm', '-v', self.container_id])
         self.container_id = self.container_ip = self.container_port = None
 
     def _ping(self, url, retries=36):
