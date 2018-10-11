@@ -113,7 +113,7 @@ def get_genome_version(sample_id, species=None):
 
 def sanitize_user_id(user_id):
     if isinstance(user_id, str):
-        return re.sub("[^\w_\-.]", "_", user_id)
+        return re.sub("[^\w]", "_", user_id)
 
 
 substitutions = (
