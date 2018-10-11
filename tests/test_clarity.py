@@ -117,6 +117,7 @@ class TestClarity(TestEGCG):
 
     def test_sanitize_user_id(self):
         assert clarity.sanitize_user_id('this?that$other another:more') == 'this_that_other_another_more'
+        assert clarity.sanitize_user_id('this.that$other another:more') == 'this_that_other_another_more'
 
     def test_get_list_of_samples(self):
         exp_lims_sample_ids = ['this', 'that:01', 'other _L:01']
