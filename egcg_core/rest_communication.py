@@ -1,5 +1,6 @@
 import json
 import mimetypes
+import os
 from urllib.parse import urljoin
 import requests
 from multiprocessing import Lock
@@ -18,7 +19,7 @@ class Communicator(AppLogger):
         self._baseurl = baseurl
         self._auth = auth
         self.retries = retries
-        self._session = None
+        self._sessions = {}
         self.lock = Lock()
 
     def begin_session(self):
@@ -36,9 +37,11 @@ class Communicator(AppLogger):
 
     @property
     def session(self):
-        if self._session is None:
-            self._session = self.begin_session()
-        return self._session
+        """Create and return a session per PID so each sub-processes will use their own session"""
+        pid = os.getpid()
+        if pid not in self._sessions:
+            self._sessions[pid] = self.begin_session()
+        return self._sessions[pid]
 
     @staticmethod
     def serialise(queries):
@@ -137,23 +140,22 @@ class Communicator(AppLogger):
             kwargs['data'] = kwargs.pop('json')
 
         self.lock.acquire()
-        r = self.session.request(method, url, **kwargs)
+        try:
+            r = self.session.request(method, url, **kwargs)
+        finally:
+            self.lock.release()
 
         kwargs.pop('files', None)
         # e.g: 'POST <url> ({"some": "args"}) -> {"some": "content"}. Status code 201. Reason: CREATED
         report = '%s %s (%s) -> %s. Status code %s. Reason: %s' % (
             r.request.method, r.request.path_url, kwargs, r.content.decode('utf-8'), r.status_code, r.reason
         )
-
         if r.status_code in self.successful_statuses:
             if not quiet:
                 self.debug(report)
-
-            self.lock.release()
             return r
         else:
             self.error(report)
-            self.lock.release()
             raise RestCommunicationError('Encountered a %s status code: %s' % (r.status_code, r.reason))
 
     def get_content(self, endpoint, paginate=True, quiet=False, **query_args):
@@ -258,6 +260,15 @@ class Communicator(AppLogger):
             else:
                 self.post_entry(endpoint, _payload)
 
+    def close(self):
+        for s in self._sessions.values():
+            s.close()
+
+    def __del__(self):
+        try:
+            self.close()
+        except ReferenceError:
+            pass
 
 default = Communicator()
 api_url = default.api_url

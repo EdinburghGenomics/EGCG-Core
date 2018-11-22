@@ -1,7 +1,13 @@
+import multiprocessing
 import os
 import json
+
+import pytest
 from requests import Session
 from unittest.mock import Mock, patch, call
+
+from requests.exceptions import SSLError
+
 from tests import FakeRestResponse, TestEGCG
 from egcg_core import rest_communication
 from egcg_core.util import check_if_nested
@@ -30,6 +36,7 @@ def fake_request(method, url, **kwargs):
 
 
 patched_request = patch.object(Session, 'request', side_effect=fake_request)
+patched_failed_request = patch.object(Session, 'request', side_effect=SSLError('SSL error'))
 auth = ('a_user', 'a_password')
 
 
@@ -96,6 +103,47 @@ class TestRestCommunication(TestEGCG):
             assert response.status_code == 200
             assert json.loads(response.content.decode('utf-8')) == response.json() == test_nested_request_content
             mocked_request.assert_called_with('METHOD', rest_url(test_endpoint), json=json_content)
+
+    @patched_failed_request
+    def test_failed_req(self, mocked_request):
+        json_content = ['some', {'test': 'json'}]
+        self.comm.lock = Mock()
+        self.comm.lock.acquire.assert_not_called()
+        self.comm.lock.release.assert_not_called()
+
+        with pytest.raises(SSLError):
+            _ = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+
+        self.comm.lock.acquire.assert_called_once()
+        self.comm.lock.release.assert_called_once()  # exception raised, but lock still released
+
+    @patched_request
+    def test_multi_session(self, mocked_request):
+        json_content = ['some', {'test': 'json'}]
+        with patch('os.getpid', return_value=1):
+            _ = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+        with patch('os.getpid', return_value=2):
+            _ = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+        assert len(self.comm._sessions) == 2
+
+    @patched_request
+    def test_with_multiprocessing(self, mocked_request):
+        json_content = ['some', {'test': 'json'}]
+
+        def assert_request():
+            _ = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+            assert mocked_request.call_count == 2
+            assert len(self.comm._sessions) == 2
+
+        # initiate in the Session in the main thread
+        self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+        procs = []
+        for i in range(10):
+            procs.append(multiprocessing.Process(target=assert_request))
+        for p in procs:
+            p.start()
+        for p in procs:
+            p.join()
 
     @patch.object(Session, '__exit__')
     @patch.object(Session, '__enter__')
