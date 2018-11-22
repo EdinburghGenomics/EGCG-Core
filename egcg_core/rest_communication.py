@@ -37,6 +37,7 @@ class Communicator(AppLogger):
 
     @property
     def session(self):
+        """Create and return a session per PID so each sub-processes will use their own session"""
         pid = os.getpid()
         if pid not in self._sessions:
             self._sessions[pid] = self.begin_session()

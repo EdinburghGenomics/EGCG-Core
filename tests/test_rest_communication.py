@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import json
 
@@ -124,6 +125,25 @@ class TestRestCommunication(TestEGCG):
         with patch('os.getpid', return_value=2):
             _ = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
         assert len(self.comm._sessions) == 2
+
+    @patched_request
+    def test_with_multiprocessing(self, mocked_request):
+        json_content = ['some', {'test': 'json'}]
+
+        def assert_request():
+            _ = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+            assert mocked_request.call_count == 2
+            assert len(self.comm._sessions) == 2
+
+        # initiate in the Session in the main thread
+        self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+        procs = []
+        for i in range(10):
+            procs.append(multiprocessing.Process(target=assert_request))
+        for p in procs:
+            p.start()
+        for p in procs:
+            p.join()
 
     @patch.object(Session, '__exit__')
     @patch.object(Session, '__enter__')
