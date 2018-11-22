@@ -264,8 +264,10 @@ class Communicator(AppLogger):
             s.close()
 
     def __del__(self):
-        self.close()
-
+        try:
+            self.close()
+        except ReferenceError:
+            pass
 
 default = Communicator()
 api_url = default.api_url
