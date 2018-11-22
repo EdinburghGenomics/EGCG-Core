@@ -260,7 +260,7 @@ class Communicator(AppLogger):
                 self.post_entry(endpoint, _payload)
 
     def close(self):
-        for s in self._sessions:
+        for s in self._sessions.values():
             s.close()
 
     def __del__(self):
