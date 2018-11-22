@@ -1,10 +1,11 @@
 Changelog for EGCG-Core
 ===========================
 
-0.10 (unreleased)
------------------
+0.9.1 (2018-11-22)
+------------------
 
-- Nothing changed yet.
+- Adding `-` and `.` to replaceable characters in `clarity.sanitise_user_id`
+- Making Session objects unique to child processes in `rest_communication` 
 
 
 0.9 (2018-09-14)
