@@ -27,7 +27,9 @@ class Configuration:
             self.env_var = env_var
         self.config_file = self._find_config_file(search_path)
         if self.config_file:
-            self.content = yaml.safe_load(open(self.config_file, 'r'))
+            with open(self.config_file, 'r') as f:
+                self.content = yaml.safe_load(f)
+
             self._select_env()
         else:
             raise ConfigError('Could not find any config file in specified search path')

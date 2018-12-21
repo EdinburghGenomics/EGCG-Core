@@ -21,7 +21,7 @@ class StreamExecutor(Thread, Executor):
         super().join(timeout=timeout)
         if self.exception:
             self._stop()
-            self.error('Encountered a %s error: %s', self.exception.__class__.__name__, str(self.exception))
+            self.error('Encountered a %s error: %s', self.exception.__class__.__name__, self.exception)
             raise EGCGError('self.proc command failed: ' + self.cmd)
         return self.proc.wait()
 
@@ -32,9 +32,7 @@ class StreamExecutor(Thread, Executor):
             self.exception = e
 
     def _stream_output(self):
-        """
-        Run self._process and log its stdout/stderr until an EOF.
-        """
+        """Run self._process and log its stdout/stderr until an EOF."""
         proc = self._process()
         read_set = [proc.stdout, proc.stderr]
         while read_set:

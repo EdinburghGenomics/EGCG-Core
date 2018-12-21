@@ -43,7 +43,9 @@ class NotificationCentre(AppLogger):
         if exceptions:
             raise EGCGError(
                 'Encountered the following errors during notification: %s' % ', '.join(
-                    '%s: %s' % (e.__class__.__name__, str(e)) for e in exceptions)
+                    '%s: %s' % (e.__class__.__name__, str(e))
+                    for e in exceptions
+                )
             )
 
     def notify_all(self, msg):

@@ -1,5 +1,4 @@
 import subprocess
-import shlex
 from egcg_core.app_logging import AppLogger
 from egcg_core.exceptions import EGCGError
 
@@ -35,6 +34,5 @@ class Executor(AppLogger):
         :rtype: subprocess.Popen
         """
         self.info('Executing: %s', self.cmd)
-        # TODO: explore how to run commands with Bash constructs , e.g. 'command <(sub command)'
-        self.proc = subprocess.Popen(shlex.split(self.cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.proc = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         return self.proc
