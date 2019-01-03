@@ -36,6 +36,6 @@ class ArrayExecutor(StreamExecutor):
         if self.exception:
             self._stop()
             self.error(self.exception.__class__.__name__ + ': ' + str(self.exception))
-            raise EGCGError('Commands failed: ' + str(self.exit_statuses))
+            raise EGCGError('Commands failed: ' + str(self.exit_statuses)) from self.exception
         self.info('Exit statuses: %s', self.exit_statuses)
         return sum(self.exit_statuses)

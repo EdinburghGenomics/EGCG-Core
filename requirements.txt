@@ -1,5 +1,5 @@
 pytest>=3.0.0
-pytest_xdist==1.24.1  #
+pytest_xdist==1.24.1
 pytest_cov>=2.5.1
 requests==2.20.0
 PyYAML>=3.11

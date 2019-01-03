@@ -22,7 +22,8 @@ class StreamExecutor(Thread, Executor):
         if self.exception:
             self._stop()
             self.error('Encountered a %s error: %s', self.exception.__class__.__name__, self.exception)
-            raise EGCGError('self.proc command failed: ' + self.cmd)
+            raise EGCGError('Command failed: ' + self.cmd) from self.exception
+
         return self.proc.wait()
 
     def run(self):
