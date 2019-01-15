@@ -1,9 +1,9 @@
-pytest>=3.0.0
+pytest==4.1.1
 pytest_xdist==1.24.1
-pytest_cov>=2.5.1
+pytest_cov==2.6.0
 requests==2.20.0
-PyYAML>=3.11
-pyclarity_lims>=0.4
+PyYAML==3.13
+pyclarity_lims==0.4.5
 jinja2==2.8
 asana==0.6.7
-cached_property
+cached_property==1.5.1
