@@ -24,8 +24,15 @@ class Executor(AppLogger):
         except Exception as e:
             raise EGCGError('Command failed: ' + self.cmd) from e
 
-    def start(self):
-        raise NotImplementedError
+    @staticmethod
+    def start():
+        """
+        Subclasses of Executor implement this method from different sources:
+          - StreamExecutor and ArrayExecutor inherit it from threading.Thread
+          - ClusterExecutor implements it so it writes and submits a script to a queue
+        The definition here has no effect, but allows Executor to be handled identically to other executors.
+        """
+        pass
 
     def _process(self):
         """

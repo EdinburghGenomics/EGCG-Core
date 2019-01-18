@@ -17,18 +17,14 @@ class TestExecutor(TestEGCG):
 
     def execute(self, *args, **kwargs):
         e = self.executor_cls(*args, **kwargs)
-        try:
-            e.start()
-        except NotImplementedError:
-            pass
-
+        e.start()
         return e.join()
 
     def test_cmd(self):
         assert self.execute('ls ' + os.path.dirname(self.assets_path)) == 0
 
     def test_dodgy_cmd(self):
-        assert self.execute('dodgy_cmd') == 127
+        assert self.execute('dodgy_cmd') == 127  # command not found
 
     def test_script(self):
         assert self.execute(os.path.join(self.assets_path, 'countdown.sh')) == 0
@@ -81,6 +77,11 @@ class TestArrayExecutor(TestExecutor):
         e.error = Mock()
         e.start()
         assert e.join() == 127
+        assert e.exit_statuses == [
+            0,  # ls
+            127,  # command not found
+            0  # pwd
+        ]
 
     def test_internal_error(self):
         with patch.object(StreamExecutor, 'info', side_effect=ValueError('Something went wrong')):
