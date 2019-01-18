@@ -1,7 +1,6 @@
 import os
 from unittest.mock import patch, Mock
 from egcg_core import clarity
-from egcg_core.config import cfg
 from tests import TestEGCG
 
 
@@ -62,7 +61,6 @@ class TestClarity(TestEGCG):
         clarity.app_logger = Mock()
 
     def test_connection(self):
-        cfg.load_config_file(self.etc_config)
         clarity._lims = None
         # create connection from config
         lims = clarity.connection()

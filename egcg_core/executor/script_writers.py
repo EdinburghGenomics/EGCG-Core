@@ -22,7 +22,7 @@ class ScriptWriter(AppLogger):
     suffix = '.sh'
     array_index = 'JOB_INDEX'
 
-    def __init__(self, job_name, working_dir, job_queue, log_commands=True, **cluster_config):
+    def __init__(self, job_name, working_dir, job_queue, cpus, mem, walltime=None, log_commands=True):
         """
         :param str job_name: Desired full path to the pbs script to write
         """
@@ -33,7 +33,14 @@ class ScriptWriter(AppLogger):
         self.debug('Writing job "%s" in %s', job_name, working_dir)
         self.lines = []
         self.array_jobs_written = 0
-        self.cluster_config = dict(cluster_config, job_name=job_name, log_file=self.log_file, job_queue=job_queue)
+        self.cluster_config = {
+            'job_name': job_name,
+            'job_queue': job_queue,
+            'cpus': cpus,
+            'mem': mem,
+            'walltime': walltime,
+            'log_file': self.log_file
+        }
 
     def register_cmd(self, cmd, log_file=None):
         if log_file:
@@ -95,7 +102,7 @@ class ScriptWriter(AppLogger):
 
     def add_header(self):
         """Write a header for a given resource manager. If multiple jobs, split them into a job array."""
-        header_mapping = dict(self.cluster_config, log_file=self.log_file, jobs=str(self.array_jobs_written))
+        header_mapping = dict(self.cluster_config, jobs=str(self.array_jobs_written))
         header_lines = list(self.header)
 
         if self.cluster_config.get('walltime'):
@@ -141,7 +148,7 @@ class PBSWriter(ScriptWriter):
     walltime_header = '#PBS -l walltime={walltime}:00:00'
     array_header = '#PBS -J 1-{jobs}'
 
-    def __init__(self, job_name, working_dir, job_queue, log_commands=True, **cluster_config):
-        super().__init__(job_name, working_dir, job_queue, log_commands, **cluster_config)
+    def __init__(self, job_name, working_dir, job_queue, cpus, mem, walltime=None, log_commands=True):
+        super().__init__(job_name, working_dir, job_queue, cpus, mem, walltime, log_commands)
         if len(self.cluster_config['job_name']) > 15:  # job names longer than 15 chars break PBS
             self.cluster_config['job_name'] = self.cluster_config['job_name'][:15]

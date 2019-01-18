@@ -104,19 +104,37 @@ class TestArrayExecutor(TestExecutor):
 
 
 class TestClusterExecutor(TestEGCG):
-    ppath = 'egcg_core.executor.cluster_executor.ClusterExecutor'
     script = os.path.join(TestEGCG.assets_path, 'countdown.sh')
+    executor_cls = ClusterExecutor
 
     def setUp(self):
-        os.makedirs(os.path.join(self.assets_path, 'a_run_id'), exist_ok=True)
-        self.executor = ClusterExecutor(
-            self.script,
-            job_name='test_job',
-            working_dir=os.path.join(self.assets_path, 'a_run_id')
-        )
+        self.working_dir = os.path.join(self.assets_path, 'a_working_dir')
+        os.makedirs(self.working_dir, exist_ok=True)
+        self.executor = self.executor_cls(self.script, job_name='test_job', working_dir=self.working_dir)
 
     def tearDown(self):
-        shutil.rmtree(os.path.join(self.assets_path, 'a_run_id'))
+        shutil.rmtree(self.working_dir)
+
+    def test_get_writer(self):
+        w = self.executor.writer  # default args
+        assert w.cluster_config == {
+            'job_name': 'test_job',
+            'job_queue': 'a_job_queue',
+            'cpus': 1,
+            'mem': 2,
+            'walltime': None,
+            'log_file': w.log_file
+        }
+
+        w = self.executor._get_writer('test_job_2', self.working_dir, 'another_job_queue', 2, 4, 1, False)
+        assert w.cluster_config == {
+            'job_name': 'test_job_2',
+            'job_queue': 'another_job_queue',
+            'cpus': 2,
+            'mem': 4,
+            'walltime': 1,
+            'log_file': w.log_file
+        }
 
     def test_get_stdout(self):
         popen = 'egcg_core.executor.executor.subprocess.Popen'
@@ -137,16 +155,18 @@ class TestClusterExecutor(TestEGCG):
         assert str(err).endswith('Job submission failed')
 
     def test_join(self):
-        job_finished = self.ppath + '._job_finished'
-        exit_code = self.ppath + '._job_exit_code'
+        patched_job_finished = patch.object(self.executor_cls, '_job_finished', return_value=True)
+        patched_exit_code = patch.object(self.executor_cls, '_job_exit_code', return_value=0)
         self.executor.finished_statuses = 'FXM'
-        with patch(job_finished, return_value=True), patch(exit_code, return_value=0), patch(sleep):
+        with patched_job_finished, patched_exit_code, patch(sleep):
             assert self.executor.join() == 0
 
     def test_job_cancellation(self):
-        with patch(self.ppath + '._submit_job'), patch(self.ppath + '._job_finished', return_value=True),\
-             patch(self.ppath + '.write_script'), patch(self.ppath + '._job_exit_code', return_value=9),\
-             patch(self.ppath + '.cancel_job'), patch(sleep):
+        with patch.object(self.executor_cls, '_submit_job'),\
+             patch.object(self.executor_cls, '_job_finished', return_value=True),\
+             patch.object(self.executor_cls, 'write_script'),\
+             patch.object(self.executor_cls, '_job_exit_code', return_value=9),\
+             patch.object(self.executor_cls, 'cancel_job'), patch(sleep):
 
             self.executor.job_id = 'test_job'
             self.executor.start()
@@ -156,15 +176,7 @@ class TestClusterExecutor(TestEGCG):
 
 
 class TestPBSExecutor(TestClusterExecutor):
-    ppath = 'egcg_core.executor.cluster_executor.PBSExecutor'
-
-    def setUp(self):
-        os.makedirs(os.path.join(self.assets_path, 'a_run_id'), exist_ok=True)
-        self.executor = PBSExecutor(
-            self.script,
-            job_name='test_job',
-            working_dir=os.path.join(self.assets_path, 'a_run_id')
-        )
+    executor_cls = PBSExecutor
 
     def test_qstat(self):
         fake_report = ('Job id            Name             User              Time Use S Queue\n'
@@ -193,15 +205,7 @@ class TestPBSExecutor(TestClusterExecutor):
 
 
 class TestSlurmExecutor(TestClusterExecutor):
-    ppath = 'egcg_core.executor.cluster_executor.SlurmExecutor'
-
-    def setUp(self):
-        os.makedirs(os.path.join(self.assets_path, 'a_run_id'), exist_ok=True)
-        self.executor = SlurmExecutor(
-            self.script,
-            job_name='test_job',
-            working_dir=os.path.join(self.assets_path, 'a_run_id')
-        )
+    executor_cls = SlurmExecutor
 
     def test_sacct(self):
         with patch(get_stdout, return_value=' COMPLETED  0:0 \n COMPLETED  0:0\n FAILED 1:0') as p:

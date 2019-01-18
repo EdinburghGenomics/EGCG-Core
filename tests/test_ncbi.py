@@ -1,9 +1,7 @@
 import sqlite3
 from unittest.mock import patch
-from tests import TestEGCG, FakeRestResponse
+from tests import FakeRestResponse
 from egcg_core import ncbi
-from egcg_core.config import cfg
-cfg.load_config_file(TestEGCG.etc_config)
 
 
 fetch_from_eutils = ncbi._fetch_from_eutils
