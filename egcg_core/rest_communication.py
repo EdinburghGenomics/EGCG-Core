@@ -267,7 +267,7 @@ class Communicator(AppLogger):
     def __del__(self):
         try:
             self.close()
-        except ReferenceError:
+        except Exception:
             pass
 
 default = Communicator()

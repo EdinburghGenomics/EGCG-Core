@@ -4,8 +4,9 @@ from os import getenv
 from time import sleep
 from datetime import datetime
 from unittest import TestCase
-from egcg_core import config, rest_communication
+from multiprocessing import Lock
 from subprocess import check_output
+from egcg_core import config, rest_communication
 
 
 def get_cfg():
@@ -26,6 +27,7 @@ class WrappedFunc:
     def __init__(self, test_case, assert_func):
         self.test_case = test_case
         self.assert_func = assert_func
+        self.lock = Lock()
 
     def __call__(self, check_name, *args, **kwargs):
         if not isinstance(check_name, str):
@@ -48,10 +50,10 @@ class WrappedFunc:
             self.log(assertion_report + 'failed' + args_used)
             raise
 
-    @staticmethod
-    def log(msg):
-        with open('checks.log', 'a') as f:
-            f.write(msg + '\n')
+    def log(self, msg):
+        with self.lock:
+            with open('checks.log', 'a') as f:
+                f.write(msg + '\n')
 
 
 class IntegrationTest(TestCase):

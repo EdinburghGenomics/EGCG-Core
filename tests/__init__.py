@@ -2,6 +2,7 @@ import json
 import os.path
 import unittest
 from unittest.mock import Mock
+from egcg_core.config import cfg
 
 
 class FakeRestResponse(Mock):
@@ -26,3 +27,7 @@ class TestEGCG(unittest.TestCase):
     assets_path = os.path.join(file_path, 'assets')
     etc = os.path.join(os.path.dirname(file_path), 'etc')
     etc_config = os.path.join(etc, 'example_egcg.yaml')
+
+    @classmethod
+    def setUpClass(cls):
+        cfg.load_config_file(cls.etc_config)

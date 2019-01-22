@@ -27,10 +27,10 @@ class ClusterExecutor(AppLogger):
         """
         self.interval = cfg.query('executor', 'join_interval', ret_default=30)
         self.job_id = None
-        self.job_name = cluster_config.get('job_name')
+        self.job_name = cluster_config['job_name']
         self.cmds = cmds
         self.prelim_cmds = prelim_cmds
-        self.writer = self._get_writer(job_queue=cfg['executor']['job_queue'], **cluster_config)
+        self.writer = self._get_writer(**cluster_config)
 
     def write_script(self):
         if self.prelim_cmds:
@@ -60,8 +60,16 @@ class ClusterExecutor(AppLogger):
         running_executors.pop(self.job_id, None)  # unregister from running_executors
         return self._job_exit_code()
 
-    def _get_writer(self, job_name, working_dir, job_queue, walltime=None, cpus=1, mem=2, log_commands=True):
-        return self.script_writer(job_name, working_dir, job_queue, log_commands=log_commands, cpus=cpus, mem=mem, walltime=walltime)
+    def _get_writer(self, job_name, working_dir, job_queue=None, cpus=1, mem=2, walltime=None, log_commands=True):
+        return self.script_writer(
+            job_name,
+            working_dir,
+            job_queue or cfg['executor']['job_queue'],
+            cpus,
+            mem,
+            walltime,
+            log_commands
+        )
 
     def _job_statuses(self):
         return ()

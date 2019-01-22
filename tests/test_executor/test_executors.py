@@ -13,79 +13,128 @@ sleep = 'egcg_core.executor.cluster_executor.sleep'
 
 
 class TestExecutor(TestEGCG):
+    executor_cls = Executor
+
+    def execute(self, *args, **kwargs):
+        e = self.executor_cls(*args, **kwargs)
+        e.start()
+        return e.join()
+
     def test_cmd(self):
-        e = Executor('ls ' + os.path.join(self.assets_path, '..'))
-        exit_status = e.join()
-        assert exit_status == 0
+        assert self.execute('ls ' + os.path.dirname(self.assets_path)) == 0
 
     def test_dodgy_cmd(self):
-        with pytest.raises(EGCGError) as err:
-            e = Executor('dodgy_cmd')
-            e.join()
-            assert 'Command failed: \'dodgy_cmd\'' in str(err)
+        assert self.execute('dodgy_cmd') == 127  # command not found
+
+    def test_script(self):
+        assert self.execute(os.path.join(self.assets_path, 'countdown.sh')) == 0
+
+    def test_dodgy_script(self):
+        # same exit status as the running script
+        assert self.execute('%s dodgy' % os.path.join(self.assets_path, 'countdown.sh')) == 13
+
+    def test_internal_error(self):
+        with patch.object(self.executor_cls, 'info', side_effect=ValueError('Something went wrong')):
+            with pytest.raises(EGCGError) as err:
+                self.execute('ls')
+
+            assert 'Command failed: ls' in str(err)
 
     def test_process(self):
-        e = Executor('ls ' + os.path.join(self.assets_path, '..'))
+        e = self.executor_cls('ls ' + os.path.dirname(self.assets_path))
         assert e.proc is None
         proc = e._process()
         assert proc is e.proc and isinstance(e.proc, subprocess.Popen)
 
+    def test_bash_syntax(self):
+        with patch.object(self.executor_cls, 'info') as mocked_info:
+            assert self.execute('ls -lh %s | grep __init__' % os.path.dirname(self.assets_path)) == 0
+
+        assert '__init__.py' in mocked_info.call_args_list[1][0][0]
+
 
 class TestStreamExecutor(TestExecutor):
-    def test_cmd(self):
-        e = StreamExecutor(os.path.join(self.assets_path, 'countdown.sh'))
-        e.start()
-        assert e.join() == 0
-
-    def test_dodgy_command(self):
-        e = StreamExecutor(os.path.join(self.assets_path, 'countdown.sh') + ' dodgy')
-        e.start()
-        assert e.join() == 13  # same exit status as the running script
-
-    def test_dodgy_cmd(self):
-        with pytest.raises(EGCGError) as err:
-            e = StreamExecutor('dodgy_cmd')
-            e.start()
-            e.error = Mock()
-            e.join()
-            assert 'self.proc command failed: \'dodgy_cmd\'' in str(err)
+    executor_cls = StreamExecutor
 
 
 class TestArrayExecutor(TestExecutor):
+    executor_cls = ArrayExecutor
+
+    def execute(self, *args, **kwargs):
+        return super().execute(args, stream=True, **kwargs)
+
     def test_cmd(self):
-        e = ArrayExecutor(['ls', 'ls -lh', 'pwd'], stream=True)
+        e = self.executor_cls(['ls', 'ls -lh', 'pwd'], stream=True)
         e.start()
         assert e.join() == 0
         assert e.exit_statuses == [0, 0, 0]
 
     def test_dodgy_cmd(self):
-        e = ArrayExecutor(['ls', 'non_existent_cmd', 'pwd'], stream=True)
+        e = self.executor_cls(['ls', 'non_existent_cmd', 'pwd'], stream=True)
         for s in e.executors:
             s.error = Mock()
 
         e.error = Mock()
         e.start()
-        with pytest.raises(EGCGError) as err:
-            e.join()
+        assert e.join() == 127
+        assert e.exit_statuses == [
+            0,  # ls
+            127,  # command not found
+            0  # pwd
+        ]
 
-        assert 'Commands failed' in str(err)
-        e.error.assert_called_with('EGCGError: self.proc command failed: non_existent_cmd')
+    def test_internal_error(self):
+        with patch.object(StreamExecutor, 'info', side_effect=ValueError('Something went wrong')):
+            with pytest.raises(EGCGError) as err:
+                self.execute('ls')
+
+            assert 'Commands failed' in str(err)
+
+    def test_process(self):
+        e = self.executor_cls(['ls ' + os.path.dirname(self.assets_path)], stream=True)
+        assert e.proc is None
+        proc = e._process()
+        assert proc is e.proc and isinstance(e.proc, subprocess.Popen)
+
+    def test_bash_syntax(self):
+        with patch.object(StreamExecutor, 'info') as mocked_info:
+            assert self.execute('ls -lh %s | grep __init__' % os.path.dirname(self.assets_path)) == 0
+
+        assert '__init__.py' in mocked_info.call_args_list[1][0][0]
 
 
 class TestClusterExecutor(TestEGCG):
-    ppath = 'egcg_core.executor.cluster_executor.ClusterExecutor'
     script = os.path.join(TestEGCG.assets_path, 'countdown.sh')
+    executor_cls = ClusterExecutor
 
     def setUp(self):
-        os.makedirs(os.path.join(self.assets_path, 'a_run_id'), exist_ok=True)
-        self.executor = ClusterExecutor(
-            self.script,
-            job_name='test_job',
-            working_dir=os.path.join(self.assets_path, 'a_run_id')
-        )
+        self.working_dir = os.path.join(self.assets_path, 'a_working_dir')
+        os.makedirs(self.working_dir, exist_ok=True)
+        self.executor = self.executor_cls(self.script, job_name='test_job', working_dir=self.working_dir)
 
     def tearDown(self):
-        shutil.rmtree(os.path.join(self.assets_path, 'a_run_id'))
+        shutil.rmtree(self.working_dir)
+
+    def test_get_writer(self):
+        w = self.executor.writer  # default args
+        assert w.cluster_config == {
+            'job_name': 'test_job',
+            'job_queue': 'a_job_queue',
+            'cpus': 1,
+            'mem': 2,
+            'walltime': None,
+            'log_file': w.log_file
+        }
+
+        w = self.executor._get_writer('test_job_2', self.working_dir, 'another_job_queue', 2, 4, 1, False)
+        assert w.cluster_config == {
+            'job_name': 'test_job_2',
+            'job_queue': 'another_job_queue',
+            'cpus': 2,
+            'mem': 4,
+            'walltime': 1,
+            'log_file': w.log_file
+        }
 
     def test_get_stdout(self):
         popen = 'egcg_core.executor.executor.subprocess.Popen'
@@ -102,19 +151,22 @@ class TestClusterExecutor(TestEGCG):
         with pytest.raises(EGCGError) as err, patch(get_stdout, return_value=None), patch(sleep):
             self.executor.cmds = [os.path.join(self.assets_path, 'non_existent_script.sh')]
             self.executor.start()
-            assert str(err) == 'Job submission failed'
+
+        assert str(err).endswith('Job submission failed')
 
     def test_join(self):
-        job_finished = self.ppath + '._job_finished'
-        exit_code = self.ppath + '._job_exit_code'
+        patched_job_finished = patch.object(self.executor_cls, '_job_finished', return_value=True)
+        patched_exit_code = patch.object(self.executor_cls, '_job_exit_code', return_value=0)
         self.executor.finished_statuses = 'FXM'
-        with patch(job_finished, return_value=True), patch(exit_code, return_value=0), patch(sleep):
+        with patched_job_finished, patched_exit_code, patch(sleep):
             assert self.executor.join() == 0
 
     def test_job_cancellation(self):
-        with patch(self.ppath + '._submit_job'), patch(self.ppath + '._job_finished', return_value=True),\
-             patch(self.ppath + '.write_script'), patch(self.ppath + '._job_exit_code', return_value=9),\
-             patch(self.ppath + '.cancel_job'), patch(sleep):
+        with patch.object(self.executor_cls, '_submit_job'),\
+             patch.object(self.executor_cls, '_job_finished', return_value=True),\
+             patch.object(self.executor_cls, 'write_script'),\
+             patch.object(self.executor_cls, '_job_exit_code', return_value=9),\
+             patch.object(self.executor_cls, 'cancel_job'), patch(sleep):
 
             self.executor.job_id = 'test_job'
             self.executor.start()
@@ -124,15 +176,7 @@ class TestClusterExecutor(TestEGCG):
 
 
 class TestPBSExecutor(TestClusterExecutor):
-    ppath = 'egcg_core.executor.cluster_executor.PBSExecutor'
-
-    def setUp(self):
-        os.makedirs(os.path.join(self.assets_path, 'a_run_id'), exist_ok=True)
-        self.executor = PBSExecutor(
-            self.script,
-            job_name='test_job',
-            working_dir=os.path.join(self.assets_path, 'a_run_id')
-        )
+    executor_cls = PBSExecutor
 
     def test_qstat(self):
         fake_report = ('Job id            Name             User              Time Use S Queue\n'
@@ -161,15 +205,7 @@ class TestPBSExecutor(TestClusterExecutor):
 
 
 class TestSlurmExecutor(TestClusterExecutor):
-    ppath = 'egcg_core.executor.cluster_executor.SlurmExecutor'
-
-    def setUp(self):
-        os.makedirs(os.path.join(self.assets_path, 'a_run_id'), exist_ok=True)
-        self.executor = SlurmExecutor(
-            self.script,
-            job_name='test_job',
-            working_dir=os.path.join(self.assets_path, 'a_run_id')
-        )
+    executor_cls = SlurmExecutor
 
     def test_sacct(self):
         with patch(get_stdout, return_value=' COMPLETED  0:0 \n COMPLETED  0:0\n FAILED 1:0') as p:

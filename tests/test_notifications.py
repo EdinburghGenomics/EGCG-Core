@@ -6,7 +6,6 @@ from smtplib import SMTPException
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
-from egcg_core.config import cfg
 from egcg_core import notifications as n
 from egcg_core.exceptions import EGCGError
 from tests import TestEGCG
@@ -31,7 +30,6 @@ class FakeSMTP(Mock):
 
 class TestNotificationCentre(TestEGCG):
     def setUp(self):
-        cfg.load_config_file(TestEGCG.etc_config)
         self.notification_centre = n.NotificationCentre('a_name')
 
     def test_config_init(self):

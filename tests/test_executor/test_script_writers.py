@@ -81,10 +81,6 @@ class TestScriptWriter(TestEGCG):
         self.script_writer.save()
         assert 'a_line\n' in open(self.script_writer.script_name, 'r').readlines()
 
-    def test_trim_field(self):
-        s = script_writers.PBSWriter('a_job_name_too_long_for_pbs', 'a_working_dir', 'a_job_queue')
-        assert s.cluster_config['job_name'] == 'a_job_name_too_'
-
     def test(self):
         self.script_writer.log_commands = False
         self.script_writer.register_cmds('some', 'preliminary', 'cmds', parallel=False)
@@ -111,6 +107,10 @@ class TestPBSWriter(TestScriptWriter):
         '',
         'cd ' + working_dir
     ]
+
+    def test_trim_field(self):
+        s = script_writers.PBSWriter('a_job_name_too_long_for_pbs', 'a_working_dir', 'a_job_queue', 1, 1)
+        assert s.cluster_config['job_name'] == 'a_job_name_too_'
 
 
 class TestSlurmWriter(TestScriptWriter):

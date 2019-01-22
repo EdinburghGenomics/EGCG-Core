@@ -1,5 +1,4 @@
 import subprocess
-import shlex
 from egcg_core.app_logging import AppLogger
 from egcg_core.exceptions import EGCGError
 
@@ -25,8 +24,15 @@ class Executor(AppLogger):
         except Exception as e:
             raise EGCGError('Command failed: ' + self.cmd) from e
 
-    def start(self):
-        raise NotImplementedError
+    @staticmethod
+    def start():
+        """
+        Subclasses of Executor implement this method from different sources:
+          - StreamExecutor and ArrayExecutor inherit it from threading.Thread
+          - ClusterExecutor implements it so it writes and submits a script to a queue
+        The definition here has no effect, but allows Executor to be handled identically to other executors.
+        """
+        pass
 
     def _process(self):
         """
@@ -35,6 +41,5 @@ class Executor(AppLogger):
         :rtype: subprocess.Popen
         """
         self.info('Executing: %s', self.cmd)
-        # TODO: explore how to run commands with Bash constructs , e.g. 'command <(sub command)'
-        self.proc = subprocess.Popen(shlex.split(self.cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.proc = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         return self.proc

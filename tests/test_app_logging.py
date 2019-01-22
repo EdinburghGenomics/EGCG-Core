@@ -6,7 +6,6 @@ from unittest.mock import Mock
 from tests import TestEGCG
 from egcg_core import app_logging
 from egcg_core.config import cfg
-cfg.load_config_file(TestEGCG.etc_config)
 
 
 class TestLoggingConfiguration(TestEGCG):
