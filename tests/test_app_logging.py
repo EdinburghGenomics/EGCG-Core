@@ -73,6 +73,19 @@ class TestLoggingConfiguration(TestEGCG):
                 assert h.stream.name == test_log and h.level == logging.INFO
                 assert h.when == 'H' and h.interval == 3600  # casts 'h' to 'H' and multiplies when to seconds
 
+    def test_reset(self):
+        l = self.log_cfg.get_logger('a_logger')
+        assert not l.handlers  # not set up yet
+
+        self.log_cfg.configure_handlers_from_config()
+        self.log_cfg.add_stdout_handler()
+        assert len(self.log_cfg.handlers) == 4
+        assert len(l.handlers) == 4
+        self.log_cfg.reset()
+
+        assert not self.log_cfg.handlers
+        assert not l.handlers  # logger still exists, has no handlers
+
 
 class TestAppLogger(TestEGCG):
     def setUp(self):

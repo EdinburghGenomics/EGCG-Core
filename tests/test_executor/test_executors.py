@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from unittest.mock import patch, Mock
 from tests import TestEGCG
-from egcg_core.executor import Executor, StreamExecutor, ArrayExecutor, PBSExecutor, SlurmExecutor
+from egcg_core.executor import Executor, StreamExecutor, ArrayExecutor, SlurmExecutor
 from egcg_core.executor.cluster_executor import ClusterExecutor, running_executors, stop_running_jobs
 from egcg_core.exceptions import EGCGError
 
@@ -115,27 +115,6 @@ class TestClusterExecutor(TestEGCG):
     def tearDown(self):
         shutil.rmtree(self.working_dir)
 
-    def test_get_writer(self):
-        w = self.executor.writer  # default args
-        assert w.cluster_config == {
-            'job_name': 'test_job',
-            'job_queue': 'a_job_queue',
-            'cpus': 1,
-            'mem': 2,
-            'walltime': None,
-            'log_file': w.log_file
-        }
-
-        w = self.executor._get_writer('test_job_2', self.working_dir, 'another_job_queue', 2, 4, 1, False)
-        assert w.cluster_config == {
-            'job_name': 'test_job_2',
-            'job_queue': 'another_job_queue',
-            'cpus': 2,
-            'mem': 4,
-            'walltime': 1,
-            'log_file': w.log_file
-        }
-
     def test_get_stdout(self):
         popen = 'egcg_core.executor.executor.subprocess.Popen'
         with patch(popen, return_value=Mock(wait=Mock(return_value=None))) as p:
@@ -173,35 +152,6 @@ class TestClusterExecutor(TestEGCG):
             assert running_executors == {'test_job': self.executor}
             stop_running_jobs()
             assert running_executors == {}
-
-
-class TestPBSExecutor(TestClusterExecutor):
-    executor_cls = PBSExecutor
-
-    def test_qstat(self):
-        fake_report = ('Job id            Name             User              Time Use S Queue\n'
-                       '----------------  ---------------- ----------------  -------- - -------\n'
-                       '1337[].server     a_job_name       a_user            0        B a_queue\n'
-                       '1338.server       another_job_name another_user      00:00:00 R a_queue\n')
-        with patch(get_stdout, return_value=fake_report) as p:
-            assert self.executor._qstat() == [
-                '1337[].server     a_job_name       a_user            0        B a_queue',
-                '1338.server       another_job_name another_user      00:00:00 R a_queue'
-            ]
-            p.assert_called_with('qstat -xt None')
-
-    def test_job_status(self):
-        qstat = 'egcg_core.executor.cluster_executor.PBSExecutor._qstat'
-        fake_report = ['1337.server   a_job   a_user   10:00:00   R    q']
-        with patch(qstat, return_value=fake_report):
-            assert self.executor._job_statuses() == {'R'}
-
-    def test_job_finished(self):
-        job_statuses = 'egcg_core.executor.cluster_executor.PBSExecutor._job_statuses'
-        with patch(job_statuses, return_value={'F', 'M', 'X', 'B'}):
-            assert not self.executor._job_finished()
-        with patch(job_statuses, return_value={'F', 'F', 'M', 'X'}):
-            assert self.executor._job_finished()
 
 
 class TestSlurmExecutor(TestClusterExecutor):

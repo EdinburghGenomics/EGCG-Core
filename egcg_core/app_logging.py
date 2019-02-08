@@ -96,6 +96,15 @@ class LoggingConfiguration:
                 handler = handler_classes[handler_type](**handler_cfg)
                 self.add_handler(handler, level)
 
+    def reset(self):
+        for l in self.loggers.values():
+            while l.handlers:
+                l.removeHandler(l.handlers[0])
+
+        while self.handlers:
+            h = self.handlers.pop()
+            del h
+
 
 logging_default = LoggingConfiguration(cfg)
 

@@ -2,6 +2,7 @@ from os import makedirs
 from os.path import join
 import shutil
 from egcg_core.executor import script_writers
+from egcg_core.exceptions import EGCGError
 from tests import TestEGCG
 
 working_dir = join(TestEGCG.assets_path, 'test_script_writer_wd')
@@ -11,17 +12,29 @@ class TestScriptWriter(TestEGCG):
     writer_cls = script_writers.ScriptWriter
     array_index = 'JOB_INDEX'
     exp_header = [
-            '#!/bin/bash\n',
-            '# job name: a_job_name',
-            '# cpus: 1',
-            '# mem: 2gb',
-            '# queue: a_job_queue',
-            '# log file: ' + join(working_dir, 'a_job_name.log'),
-            '# walltime: 3',
-            '# job array: 1-3',
-            '',
-            'cd ' + working_dir
-        ]
+        '#!/bin/bash\n',
+        '# cpus: 1',
+        '# exclusive',
+        '# job name: a_job_name',
+        '# queue: a_job_queue',
+        '# job array: 1-3',
+        '# log file: ' + join(working_dir, 'a_job_name.log'),
+        '# mem: 2gb',
+        '# walltime: 3',
+        '',
+        'cd ' + working_dir
+    ]
+
+    exp_minimal = [
+        '#!/bin/bash\n',
+        '# job name: a_job_name',
+        '# queue: a_job_queue',
+        '# log file: ' + join(working_dir, 'a_job_name.log'),
+        '',
+        'cd ' + working_dir,
+        '',
+        'ls'
+    ]
 
     def setUp(self):
         self.exp_cmds = [
@@ -44,7 +57,8 @@ class TestScriptWriter(TestEGCG):
             'a_job_queue',
             cpus=1,
             mem=2,
-            walltime='3'
+            walltime='3',
+            exclusive=True
         )
         assert self.script_writer.lines == []
 
@@ -75,6 +89,8 @@ class TestScriptWriter(TestEGCG):
             '*) echo "Unexpected %s: $%s"' % (self.array_index, self.array_index),
             'esac'
         ]
+        with self.assertRaises(EGCGError):
+            self.script_writer.add_job_array('another', 'more')
 
     def test_save(self):
         self.script_writer.add_line('a_line')
@@ -91,26 +107,11 @@ class TestScriptWriter(TestEGCG):
         exp = self.exp_header + self.exp_cmds
         assert obs == exp
 
-
-class TestPBSWriter(TestScriptWriter):
-    writer_cls = script_writers.PBSWriter
-    array_index = 'PBS_ARRAY_INDEX'
-    exp_header = [
-        '#!/bin/bash\n',
-        '#PBS -N a_job_name',
-        '#PBS -l ncpus=1,mem=2gb',
-        '#PBS -q a_job_queue',
-        '#PBS -j oe',
-        '#PBS -o ' + join(working_dir, 'a_job_name.log'),
-        '#PBS -l walltime=3:00:00',
-        '#PBS -J 1-3',
-        '',
-        'cd ' + working_dir
-    ]
-
-    def test_trim_field(self):
-        s = script_writers.PBSWriter('a_job_name_too_long_for_pbs', 'a_working_dir', 'a_job_queue', 1, 1)
-        assert s.cluster_config['job_name'] == 'a_job_name_too_'
+    def test_minimal(self):
+        s = self.writer_cls('a_job_name', working_dir)
+        s.register_cmd('ls')
+        s.add_header()
+        assert s.lines == self.exp_minimal
 
 
 class TestSlurmWriter(TestScriptWriter):
@@ -118,13 +119,25 @@ class TestSlurmWriter(TestScriptWriter):
     array_index = 'SLURM_ARRAY_TASK_ID'
     exp_header = [
         '#!/bin/bash\n',
-        '#SBATCH --job-name="a_job_name"',
         '#SBATCH --cpus-per-task=1',
-        '#SBATCH --mem=2g',
+        '#SBATCH --exclusive',
+        '#SBATCH --job-name="a_job_name"',
         '#SBATCH --partition=a_job_queue',
-        '#SBATCH --output=' + join(working_dir, 'a_job_name.log'),
-        '#SBATCH --time=3:00:00',
         '#SBATCH --array=1-3',
+        '#SBATCH --output=' + join(working_dir, 'a_job_name.log'),
+        '#SBATCH --mem=2g',
+        '#SBATCH --time=3:00:00',
         '',
         'cd ' + working_dir
+    ]
+
+    exp_minimal = [
+        '#!/bin/bash\n',
+        '#SBATCH --job-name="a_job_name"',
+        '#SBATCH --partition=a_job_queue',
+        '#SBATCH --output=' + join(working_dir, 'a_job_name.log'),
+        '',
+        'cd ' + working_dir,
+        '',
+        'ls'
     ]

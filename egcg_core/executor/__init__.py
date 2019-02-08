@@ -1,7 +1,7 @@
 from .executor import Executor
 from .stream_executor import StreamExecutor
 from .array_executor import ArrayExecutor
-from .cluster_executor import PBSExecutor, SlurmExecutor, stop_running_jobs
+from .cluster_executor import SlurmExecutor, stop_running_jobs
 from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
 
@@ -34,12 +34,8 @@ def cluster_execute(*cmds, env=None, prelim_cmds=None, **cluster_config):
     :param cluster_config:
     :return: ClusterExecutor
     """
-    if env is None:
-        env = cfg.query('executor', 'job_execution')
-
-    if env == 'pbs':
-        cls = PBSExecutor
-    elif env == 'slurm':
+    env = cfg.query('executor', 'job_execution', ret_default=env)
+    if env == 'slurm':
         cls = SlurmExecutor
     else:
         raise EGCGError('Unknown execution environment: %s' % env)
@@ -50,9 +46,7 @@ def cluster_execute(*cmds, env=None, prelim_cmds=None, **cluster_config):
 
 
 def execute(*cmds, env=None, prelim_cmds=None, **cluster_config):
-    if env is None:
-        env = cfg.query('executor', 'job_execution')
-
+    env = cfg.query('executor', 'job_execution', ret_default=env)
     if env == 'local':
         return local_execute(*cmds)
     else:
