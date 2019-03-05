@@ -4,8 +4,8 @@ import shutil
 import subprocess
 from unittest.mock import patch, Mock
 from tests import TestEGCG
-from egcg_core.executor import Executor, StreamExecutor, ArrayExecutor, SlurmExecutor
-from egcg_core.executor.cluster_executor import ClusterExecutor, running_executors, stop_running_jobs
+from egcg_core import executor
+from egcg_core.executor.cluster_executor import ClusterExecutor, running_executors
 from egcg_core.exceptions import EGCGError
 
 get_stdout = 'egcg_core.executor.cluster_executor.ClusterExecutor._get_stdout'
@@ -13,7 +13,7 @@ sleep = 'egcg_core.executor.cluster_executor.sleep'
 
 
 class TestExecutor(TestEGCG):
-    executor_cls = Executor
+    executor_cls = executor.Executor
 
     def execute(self, *args, **kwargs):
         e = self.executor_cls(*args, **kwargs)
@@ -24,7 +24,8 @@ class TestExecutor(TestEGCG):
         assert self.execute('ls ' + os.path.dirname(self.assets_path)) == 0
 
     def test_dodgy_cmd(self):
-        assert self.execute('dodgy_cmd') == 127  # command not found
+        with patch.object(self.executor_cls, 'error'):
+            assert self.execute('dodgy_cmd') == 127  # command not found
 
     def test_script(self):
         assert self.execute(os.path.join(self.assets_path, 'countdown.sh')) == 0
@@ -52,13 +53,25 @@ class TestExecutor(TestEGCG):
 
         assert '__init__.py' in mocked_info.call_args_list[1][0][0]
 
+    @patch('egcg_core.executor.local_execute', return_value=0)
+    @patch('egcg_core.executor.cluster_execute', return_value=1)
+    def test_main_method(self, mocked_cluster, mocked_local):
+        assert executor.execute('this', 'that', env='local', some_other_arg='other') == 0
+        mocked_local.assert_called_with('this', 'that')
+
+        original_env = executor.cfg['executor']['job_execution']
+        executor.cfg.content['executor']['job_execution'] = 'slurm'
+        assert executor.execute('this', 'that', prelim_cmds=['other'], mem=4) == 1
+        mocked_cluster.assert_called_with('this', 'that', env='slurm', prelim_cmds=['other'], mem=4)
+        executor.cfg.content['executor']['job_execution'] = original_env
+
 
 class TestStreamExecutor(TestExecutor):
-    executor_cls = StreamExecutor
+    executor_cls = executor.StreamExecutor
 
 
 class TestArrayExecutor(TestExecutor):
-    executor_cls = ArrayExecutor
+    executor_cls = executor.ArrayExecutor
 
     def execute(self, *args, **kwargs):
         return super().execute(args, stream=True, **kwargs)
@@ -84,7 +97,7 @@ class TestArrayExecutor(TestExecutor):
         ]
 
     def test_internal_error(self):
-        with patch.object(StreamExecutor, 'info', side_effect=ValueError('Something went wrong')):
+        with patch.object(executor.StreamExecutor, 'info', side_effect=ValueError('Something went wrong')):
             with pytest.raises(EGCGError) as err:
                 self.execute('ls')
 
@@ -97,7 +110,7 @@ class TestArrayExecutor(TestExecutor):
         assert proc is e.proc and isinstance(e.proc, subprocess.Popen)
 
     def test_bash_syntax(self):
-        with patch.object(StreamExecutor, 'info') as mocked_info:
+        with patch.object(executor.StreamExecutor, 'info') as mocked_info:
             assert self.execute('ls -lh %s | grep __init__' % os.path.dirname(self.assets_path)) == 0
 
         assert '__init__.py' in mocked_info.call_args_list[1][0][0]
@@ -150,12 +163,12 @@ class TestClusterExecutor(TestEGCG):
             self.executor.job_id = 'test_job'
             self.executor.start()
             assert running_executors == {'test_job': self.executor}
-            stop_running_jobs()
+            executor.stop_running_jobs()
             assert running_executors == {}
 
 
 class TestSlurmExecutor(TestClusterExecutor):
-    executor_cls = SlurmExecutor
+    executor_cls = executor.SlurmExecutor
 
     def test_sacct(self):
         with patch(get_stdout, return_value=' COMPLETED  0:0 \n COMPLETED  0:0\n FAILED 1:0') as p:
