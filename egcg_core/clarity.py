@@ -187,7 +187,7 @@ def get_user_sample_name(sample_name, lenient=False):
         return sample_name
 
 
-def get_sample_gender(sample_name):
+def get_sample_sex(sample_name):
     sample = get_sample(sample_name)
     if sample:
         return sample.udf.get('Sex') or sample.udf.get('Gender')
