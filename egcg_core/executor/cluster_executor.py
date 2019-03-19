@@ -30,7 +30,7 @@ class ClusterExecutor(AppLogger):
         self.job_name = cluster_config['job_name']
         self.cmds = cmds
         self.prelim_cmds = prelim_cmds
-        self.writer = self._get_writer(**cluster_config)
+        self.writer = self.script_writer(**cluster_config)
 
     def write_script(self):
         if self.prelim_cmds:
@@ -59,17 +59,6 @@ class ClusterExecutor(AppLogger):
             sleep(self.interval)
         running_executors.pop(self.job_id, None)  # unregister from running_executors
         return self._job_exit_code()
-
-    def _get_writer(self, job_name, working_dir, job_queue=None, cpus=1, mem=2, walltime=None, log_commands=True):
-        return self.script_writer(
-            job_name,
-            working_dir,
-            job_queue or cfg['executor']['job_queue'],
-            cpus,
-            mem,
-            walltime,
-            log_commands
-        )
 
     def _job_statuses(self):
         return ()
@@ -118,34 +107,6 @@ class ClusterExecutor(AppLogger):
 
     def _cancel_job(self):
         raise NotImplementedError
-
-
-class PBSExecutor(ClusterExecutor):
-    script_writer = script_writers.PBSWriter
-    unfinished_statuses = 'BEHQRSTUW'
-    finished_statuses = 'FXM'
-
-    def _qstat(self):
-        data = self._run_and_retry('qstat -xt {j}'.format(j=self.job_id)).split('\n')
-        return [d for d in data[2:] if d]
-
-    def _job_statuses(self):
-        statuses = set()
-        reports = self._qstat()
-        for r in reports:
-            job_id, job_name, user, time, status, queue = r.split()
-            statuses.add(status)
-        return statuses
-
-    def _job_exit_code(self):
-        exit_status = 0
-        for s in self._job_statuses():
-            exit_status += self.finished_statuses.index(s)
-        return exit_status
-
-    def _cancel_job(self):
-        msg = self._run_and_retry('qdel ' + self.job_id)
-        self.info(msg)
 
 
 class SlurmExecutor(ClusterExecutor):

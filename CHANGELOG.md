@@ -4,7 +4,9 @@ Changelog for EGCG-Core
 0.10 (unreleased)
 -----------------
 
-- Nothing changed yet.
+- Adding LoggingConfiguration.reset
+- Removing PBSExecutor
+- Removing implicit parameters on cluster jobs, esp. cpu=1 and mem=2
 
 
 0.9.1 (2018-11-22)
