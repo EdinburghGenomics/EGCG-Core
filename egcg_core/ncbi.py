@@ -31,11 +31,11 @@ def connect():
 
 
 def get_species_name(query_species):
-    local_query = _fetch_from_cache(query_species)
+    local_query = fetch_from_cache(query_species)
     if local_query:
         q, taxid, scientific_name, common_name = local_query
     else:
-        taxid, scientific_name, common_name = _fetch_from_eutils(query_species)
+        taxid, scientific_name, common_name = fetch_from_eutils(query_species)
         if taxid is None:
             return None
 
@@ -44,7 +44,7 @@ def get_species_name(query_species):
     return scientific_name
 
 
-def _fetch_from_cache(query_species):
+def fetch_from_cache(query_species):
     connect()
     cursor.execute('SELECT * FROM aliases NATURAL JOIN species WHERE query_name=?', (query_species,))
     return cursor.fetchone()
@@ -59,7 +59,7 @@ def _cache_species(query_species, taxid, scientific_name, common_name):
     data_cache.commit()
 
 
-def _fetch_from_eutils(species):
+def fetch_from_eutils(species):
     """
     Query NCBI taxomomy database to get the taxonomy ID, scientific name and common name.
     Documentation available at http://www.ncbi.nlm.nih.gov/books/NBK25499/

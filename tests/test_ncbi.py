@@ -4,11 +4,6 @@ from tests import FakeRestResponse
 from egcg_core import ncbi
 
 
-fetch_from_eutils = ncbi._fetch_from_eutils
-fetch_from_cache = ncbi._fetch_from_cache
-cache_species = ncbi._cache_species
-
-
 def reset_cache():
     ncbi.data_cache = sqlite3.connect(':memory:')
     ncbi.cursor = ncbi.data_cache.cursor()
@@ -47,7 +42,7 @@ def test_fetch_from_eutils():
         )
     )
     with patched_get as mocked_get:
-        obs = fetch_from_eutils('a_species')
+        obs = ncbi.fetch_from_eutils('a_species')
         assert obs == ('1337', 'Genus species', 'a common name')
         mocked_get.assert_any_call(
             'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi',
@@ -58,18 +53,18 @@ def test_fetch_from_eutils():
             params={'db': 'Taxonomy', 'id': '1337'}
         )
     with patched_get2:
-        obs = fetch_from_eutils('a_species')
+        obs = ncbi.fetch_from_eutils('a_species')
         assert obs == ('1337', 'Genus species', 'a common name')
 
 
 def test_cache():
-    assert fetch_from_cache('a species') is None
-    cache_species('a species', '1337', 'Scientific name', 'a species')
-    assert fetch_from_cache('a species') == ('a species', '1337', 'Scientific name', 'a species')
+    assert ncbi.fetch_from_cache('a species') is None
+    ncbi._cache_species('a species', '1337', 'Scientific name', 'a species')
+    assert ncbi.fetch_from_cache('a species') == ('a species', '1337', 'Scientific name', 'a species')
     reset_cache()
 
 
-@patch('egcg_core.ncbi._fetch_from_eutils')
+@patch('egcg_core.ncbi.fetch_from_eutils')
 def test_get_species_name(mocked_fetch):
     for table in ('species', 'aliases'):
         ncbi.cursor.execute('SELECT * FROM ' + table)
@@ -84,5 +79,5 @@ def test_get_species_name(mocked_fetch):
     reset_cache()
     mocked_fetch.return_value = ('1337', 'Scientific name', 'a species')
     assert ncbi.get_species_name('a species') == 'Scientific name'
-    assert fetch_from_cache('a species') == ('a species', '1337', 'Scientific name', 'a species')
+    assert ncbi.fetch_from_cache('a species') == ('a species', '1337', 'Scientific name', 'a species')
     reset_cache()
