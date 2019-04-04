@@ -1,12 +1,16 @@
 Changelog for EGCG-Core
 ===========================
 
-0.10 (unreleased)
+0.10 (2019-04-04)
 -----------------
 
 - Adding LoggingConfiguration.reset
 - Removing PBSExecutor
 - Removing implicit parameters on cluster jobs, esp. cpu=1 and mem=2
+- Allowing Executor to call start() in the same way as other executors
+- Process-safe check logging in integration_testing
+- Catching all exceptions in Communicator.\_\_del\_\_
+- Stricter versions in requirements.txt
 
 
 0.9.1 (2018-11-22)
