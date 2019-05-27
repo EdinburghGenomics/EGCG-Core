@@ -96,3 +96,8 @@ def fetch_from_eutils(species):
         return None, None, None
 
     return all_species_names[0]
+
+
+# backward compatibility
+_fetch_from_cache = fetch_from_cache
+_fetch_from_eutils = fetch_from_eutils
