@@ -1,10 +1,11 @@
 Changelog for EGCG-Core
 ===========================
 
-0.11 (unreleased)
+0.11 (2019-06-07)
 -----------------
 
-- Nothing changed yet.
+ - Make methods to access local NCBI database public
+ - Change constant name from gender to sex (breaks backward compatibility)
 
 
 0.10 (2019-04-04)
