@@ -1,6 +1,12 @@
 Changelog for EGCG-Core
 ===========================
 
+0.12 (unreleased)
+-----------------
+
+- Nothing changed yet.
+
+
 0.11 (2019-06-07)
 -----------------
 
