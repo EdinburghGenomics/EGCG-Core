@@ -162,9 +162,9 @@ class TestClarity(TestEGCG):
         assert clarity.get_user_sample_name('a_sample_id') == 'a_user_sample_id'
         mocked_lims.assert_called_with('a_sample_id')
 
-    @patched_clarity('get_sample', return_value=Mock(udf={'Gender': 'unknown'}))
-    def test_get_sample_gender(self, mocked_lims):
-        assert clarity.get_sample_gender('a_sample_id') == 'unknown'
+    @patched_clarity('get_sample', return_value=Mock(udf={'Sex': 'unknown'}))
+    def test_get_sample_sex(self, mocked_lims):
+        assert clarity.get_sample_sex('a_sample_id') == 'unknown'
         mocked_lims.assert_called_with('a_sample_id')
 
     @patched_lims('get_file_contents', 'some test content')
