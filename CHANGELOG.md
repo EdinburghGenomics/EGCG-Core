@@ -1,10 +1,11 @@
 Changelog for EGCG-Core
 ===========================
 
-0.12 (unreleased)
------------------
+0.11.1 (2019-07-26)
+-------------------
 
-- Nothing changed yet.
+- Updating Jinja2 to 2.10.1
+- Updating pyclarity_lims to 0.4.8
 
 
 0.11 (2019-06-07)
