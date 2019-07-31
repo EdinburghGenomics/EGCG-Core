@@ -16,8 +16,8 @@ class AsanaNotification(Notification):
             self.task_template['notes'] = task_description
 
     def notify(self, msg, attachments=None):
-        self.client.tasks.add_comment(self.task['id'], text=msg)
-        self.client.tasks.update(self.task['id'], completed=False)
+        self.client.tasks.add_comment(self.task['gid'], text=msg)
+        self.client.tasks.update(self.task['gid'], completed=False)
 
         if attachments:
             if isinstance(attachments, str):
@@ -26,10 +26,12 @@ class AsanaNotification(Notification):
         for attachment in attachments or []:
             with open(attachment, 'rb') as fil:
                 content = fil.read()
-                self.client.attachments.create_on_task(
-                    task_id=self.task['id'],
-                    file_content=content,
-                    file_name=basename(attachment)
+
+                # can't use self.client.attachments.create_on_task here - results in TypeError
+                self.client.request(
+                    'post',
+                    '/tasks/%s/attachments' % self.task['gid'],
+                    files=[('file', (basename(attachment), content, None))],
                 )
 
     @cached_property
@@ -38,7 +40,7 @@ class AsanaNotification(Notification):
         task_ent = self._get_entity(tasks, self.task_id)
         if task_ent is None:
             task_ent = self._create_task()
-        return self.client.tasks.find_by_id(task_ent['id'])
+        return self.client.tasks.find_by_id(task_ent['gid'])
 
     @staticmethod
     def _get_entity(collection, name):
