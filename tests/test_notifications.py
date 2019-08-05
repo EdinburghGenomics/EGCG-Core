@@ -293,7 +293,7 @@ class TestAsanaNotification(TestEGCG):
         self.ntf.client.request.assert_called_with(
             'post',
             '/tasks/1337/attachments',
-            files=[('file', 'test_to_upload.txt', b'test_content', None)]
+            files=[('file', ('test_to_upload.txt', b'test content', None))]
         )
 
     def test_add_comment_with_attachments(self):
@@ -308,5 +308,5 @@ class TestAsanaNotification(TestEGCG):
         assert self.ntf._get_entity(collection, 'other') is None
 
     def test_create_task(self):
-        assert self.ntf._create_task() == {'id': 1337}
+        assert self.ntf._create_task() == {'gid': 1337}
         self.ntf.client.tasks.create_in_workspace.assert_called_with(1337, self.ntf.task_template)
