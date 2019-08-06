@@ -219,7 +219,7 @@ def test_send_plain_text_email(mocked_send):
 def test_send_html_email(mocked_send):
     email_template = join(dirname(dirname(abspath(__file__))), 'etc', 'email_notification.html')
 
-    n.send_html_email('localhost', 1337, 'Sender', ['reciptient1', 'reciptient2'], 'Subject',
+    n.send_html_email('localhost', 1337, 'Sender', ['recipient1', 'recipient2'], 'Subject',
                       email_template=email_template, title='title', body='body')
     exp_msg = (
         '<!DOCTYPE html>\n'
@@ -242,7 +242,7 @@ def test_send_html_email(mocked_send):
     exp = MIMEText(exp_msg, 'html')
     exp['Subject'] = 'Subject'
     exp['From'] = 'Sender'
-    exp['To'] = 'reciptient1, reciptient2'
+    exp['To'] = 'recipient1, recipient2'
     assert str(mocked_send.call_args[0][0]) == str(exp)
 
 
@@ -274,13 +274,13 @@ class TestAsanaNotification(TestEGCG):
         self.ntf.client = Mock(
             tasks=Mock(
                 find_all=Mock(return_value=[{'name': 'this'}]),
-                create_in_workspace=Mock(return_value={'id': 1337}),
-                find_by_id=Mock(return_value={'name': 'this', 'id': 1337})
+                create_in_workspace=Mock(return_value={'gid': 1337}),
+                find_by_id=Mock(return_value={'name': 'this', 'gid': 1337})
             )
         )
 
     def test_task(self):
-        assert self.ntf.task == {'id': 1337, 'name': 'this'}
+        assert self.ntf.task == {'gid': 1337, 'name': 'this'}
         self.ntf.client.tasks.find_by_id.assert_called_with(1337)
 
     def test_add_comment(self):
@@ -290,10 +290,10 @@ class TestAsanaNotification(TestEGCG):
     def _test_add_comment_with_attachments(self, attachments):
         self.ntf.notify('a comment', attachments=attachments)
         self.ntf.client.tasks.add_comment.assert_called_with(1337, text='a comment')
-        self.ntf.client.attachments.create_on_task.assert_called_with(
-            file_content=b'test content',
-            file_name='test_to_upload.txt',
-            task_id=1337
+        self.ntf.client.request.assert_called_with(
+            'post',
+            '/tasks/1337/attachments',
+            files=[('file', ('test_to_upload.txt', b'test content', None))]
         )
 
     def test_add_comment_with_attachments(self):
@@ -308,5 +308,5 @@ class TestAsanaNotification(TestEGCG):
         assert self.ntf._get_entity(collection, 'other') is None
 
     def test_create_task(self):
-        assert self.ntf._create_task() == {'id': 1337}
+        assert self.ntf._create_task() == {'gid': 1337}
         self.ntf.client.tasks.create_in_workspace.assert_called_with(1337, self.ntf.task_template)

@@ -1,10 +1,10 @@
 Changelog for EGCG-Core
 ===========================
 
-0.12 (unreleased)
------------------
+0.11.2 (unreleased)
+-------------------
 
-- Nothing changed yet.
+- AsanaNotification compatibility update for Asana API changes
 
 
 0.11.1 (2019-07-26)
