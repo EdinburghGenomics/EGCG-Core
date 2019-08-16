@@ -95,28 +95,33 @@ class ReportingAppIntegrationTest(IntegrationTest):
     container_ip = None
     container_port = None
 
+    @property
+    def reporting_app_data(self):
+        """
+        directory containing the reporting app data that will be mounted on the docker image.
+        Location depends on the current working directory.
+        """
+        return os.path.abspath('reporting_app_data')
+
     def _loadup_directory_with_data(self):
         """Prepare the directory that will be passed on to reporting app docker image."""
-
-        reporting_app_data = os.path.abspath('reporting_app_data')
-        os.makedirs(reporting_app_data, exist_ok=True)
+        os.makedirs(self.reporting_app_data, exist_ok=True)
         lims_data_yaml = self.cfg.query('reporting_app', 'lims_data_yaml')
         if lims_data_yaml and os.path.isfile(lims_data_yaml):
-            shutil.copyfile(lims_data_yaml, os.path.join(reporting_app_data, 'data_for_clarity_lims.yaml'))
+            shutil.copyfile(lims_data_yaml, os.path.join(self.reporting_app_data, 'data_for_clarity_lims.yaml'))
         users_sqlite = self.cfg.query('reporting_app', 'users_sqlite')
         if users_sqlite and os.path.isfile(users_sqlite):
-            shutil.copyfile(users_sqlite, os.path.join(reporting_app_data, 'users.sqlite'))
+            shutil.copyfile(users_sqlite, os.path.join(self.reporting_app_data, 'users.sqlite'))
         mongo_db = self.cfg.query('reporting_app', 'mongo_db')
         if mongo_db and os.path.isdir(mongo_db):
-            shutil.copytree(users_sqlite, os.path.join(reporting_app_data, 'db'))
-        return reporting_app_data
+            shutil.copytree(users_sqlite, os.path.join(self.reporting_app_data, 'db'))
 
     def setUp(self):
         super().setUp()
-        reporting_app_data = self._loadup_directory_with_data()
+        self._loadup_directory_with_data()
 
         self.container_id = check_output(
-            ['docker', 'run', '-d', '-v', reporting_app_data + ':/opt/etc',
+            ['docker', 'run', '-d', '-v', self.reporting_app_data + ':/opt/etc',
              self.cfg['reporting_app']['image_name'],
              self.cfg.query('reporting_app', 'branch', ret_default='master')]
         ).decode().strip()
@@ -141,6 +146,7 @@ class ReportingAppIntegrationTest(IntegrationTest):
         assert self.container_id
         check_output(['docker', 'stop', self.container_id])
         check_output(['docker', 'rm', '-v', self.container_id])
+        shutil.rmtree(self.reporting_app_data)
         self.container_id = self.container_ip = self.container_port = None
 
     def _ping(self, url, retries=36):
