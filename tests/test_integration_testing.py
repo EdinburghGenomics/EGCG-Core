@@ -1,5 +1,7 @@
 import filecmp
 import os
+import shutil
+
 import requests
 from unittest.mock import Mock, patch
 from egcg_core import integration_testing, config
@@ -45,8 +47,12 @@ class TestIntegrationTesting(TestEGCG):
     def test_reporting_app_integration_test(self, mocked_check_output, mocked_get_cfg, mocked_sleep, mocked_get):
         # Change directory to local test folder
         test_dir = os.path.abspath(os.path.dirname(__file__))
+        current_dir = os.getcwd()
         os.chdir(test_dir)
         reporting_app_data_dir = os.path.join(test_dir, 'reporting_app_data')
+        if os.path.isdir(reporting_app_data_dir):
+            # remove previously created directory
+            shutil.rmtree(reporting_app_data_dir)
         mocked_check_output.side_effect = [
             b'docker_id\n',
             (
@@ -62,16 +68,22 @@ class TestIntegrationTesting(TestEGCG):
         ]
         fake_cfg = config.Configuration()
         fake_cfg.content = {
-            'reporting_app': {'image_name': 'an_image', 'username': 'a_user', 'password': 'a_password',
-                              'lims_data_yaml': self.etc_config}
+            'reporting_app': {
+                'image_name': 'an_image', 'username': 'a_user', 'password': 'a_password',
+                'lims_data_yaml': self.etc_config,
+                'users_sqlite': self.etc_config,
+                'mongo_db': self.etc
+            }
         }
         mocked_get_cfg.return_value = fake_cfg
         t = integration_testing.ReportingAppIntegrationTest()
         t.setUp()
 
         # Check that the config file has been copied
-        assert os.listdir(reporting_app_data_dir) == ['data_for_clarity_lims.yaml']
+        assert os.listdir(reporting_app_data_dir) == ['data_for_clarity_lims.yaml', 'db', 'users.sqlite']
         assert filecmp.cmp(os.path.join(reporting_app_data_dir, 'data_for_clarity_lims.yaml'), self.etc_config)
+        assert filecmp.cmp(os.path.join(reporting_app_data_dir, 'users.sqlite'), self.etc_config)
+        assert os.listdir(os.path.join(reporting_app_data_dir, 'db')) == os.listdir(self.etc)
         # Check that the command were call properly
         assert mocked_check_output.call_count == 2
         mocked_check_output.assert_any_call(
@@ -83,3 +95,5 @@ class TestIntegrationTesting(TestEGCG):
         assert mocked_get.call_count == 2
         assert mocked_sleep.call_count == 1
         t.tearDown()
+        # revert to the previous directory
+        os.chdir(current_dir)

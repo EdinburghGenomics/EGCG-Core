@@ -114,7 +114,7 @@ class ReportingAppIntegrationTest(IntegrationTest):
             shutil.copyfile(users_sqlite, os.path.join(self.reporting_app_data, 'users.sqlite'))
         mongo_db = self.cfg.query('reporting_app', 'mongo_db')
         if mongo_db and os.path.isdir(mongo_db):
-            shutil.copytree(users_sqlite, os.path.join(self.reporting_app_data, 'db'))
+            shutil.copytree(mongo_db, os.path.join(self.reporting_app_data, 'db'))
 
     def setUp(self):
         super().setUp()
