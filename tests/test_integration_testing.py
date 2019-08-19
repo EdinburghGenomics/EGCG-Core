@@ -80,7 +80,7 @@ class TestIntegrationTesting(TestEGCG):
         t.setUp()
 
         # Check that the config file has been copied
-        assert os.listdir(reporting_app_data_dir) == ['data_for_clarity_lims.yaml', 'db', 'users.sqlite']
+        assert sorted(os.listdir(reporting_app_data_dir)) == sorted(['data_for_clarity_lims.yaml', 'db', 'users.sqlite'])
         assert filecmp.cmp(os.path.join(reporting_app_data_dir, 'data_for_clarity_lims.yaml'), self.etc_config)
         assert filecmp.cmp(os.path.join(reporting_app_data_dir, 'users.sqlite'), self.etc_config)
         assert sorted(os.listdir(os.path.join(reporting_app_data_dir, 'db'))) == sorted(os.listdir(self.etc))
