@@ -83,7 +83,7 @@ class TestIntegrationTesting(TestEGCG):
         assert os.listdir(reporting_app_data_dir) == ['data_for_clarity_lims.yaml', 'db', 'users.sqlite']
         assert filecmp.cmp(os.path.join(reporting_app_data_dir, 'data_for_clarity_lims.yaml'), self.etc_config)
         assert filecmp.cmp(os.path.join(reporting_app_data_dir, 'users.sqlite'), self.etc_config)
-        assert os.listdir(os.path.join(reporting_app_data_dir, 'db')) == os.listdir(self.etc)
+        assert sorted(os.listdir(os.path.join(reporting_app_data_dir, 'db'))) == sorted(os.listdir(self.etc))
         # Check that the command were call properly
         assert mocked_check_output.call_count == 2
         mocked_check_output.assert_any_call(
