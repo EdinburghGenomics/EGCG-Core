@@ -94,6 +94,9 @@ class ReportingAppIntegrationTest(IntegrationTest):
     container_id = None
     container_ip = None
     container_port = None
+    lims_data_yaml = None
+    users_sqlite = None
+    mongo_db = None
 
     @property
     def reporting_app_data(self):
@@ -106,13 +109,13 @@ class ReportingAppIntegrationTest(IntegrationTest):
     def _loadup_directory_with_data(self):
         """Prepare the directory that will be passed on to reporting app docker image."""
         os.makedirs(self.reporting_app_data, exist_ok=True)
-        lims_data_yaml = self.cfg.query('reporting_app', 'lims_data_yaml')
+        lims_data_yaml = self.cfg.query('reporting_app', 'lims_data_yaml', ret_default=self.lims_data_yaml)
         if lims_data_yaml and os.path.isfile(lims_data_yaml):
             shutil.copyfile(lims_data_yaml, os.path.join(self.reporting_app_data, 'data_for_clarity_lims.yaml'))
-        users_sqlite = self.cfg.query('reporting_app', 'users_sqlite')
+        users_sqlite = self.cfg.query('reporting_app', 'users_sqlite', ret_default=self.users_sqlite)
         if users_sqlite and os.path.isfile(users_sqlite):
             shutil.copyfile(users_sqlite, os.path.join(self.reporting_app_data, 'users.sqlite'))
-        mongo_db = self.cfg.query('reporting_app', 'mongo_db')
+        mongo_db = self.cfg.query('reporting_app', 'mongo_db', ret_default=self.mongo_db)
         if mongo_db and os.path.isdir(mongo_db):
             shutil.copytree(mongo_db, os.path.join(self.reporting_app_data, 'db'))
 
