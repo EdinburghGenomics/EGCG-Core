@@ -1,4 +1,6 @@
 import warnings
+from _socket import gaierror
+
 import jinja2
 import smtplib
 from email.mime.text import MIMEText
@@ -39,7 +41,7 @@ class EmailSender(AppLogger):
         try:
             self._connect_and_send(msg)
             return True
-        except (smtplib.SMTPException, TimeoutError) as e:
+        except OSError as e:
             retries -= 1
             self.warning('Encountered a %s exception. %s retries remaining', str(e), retries)
             if retries:
