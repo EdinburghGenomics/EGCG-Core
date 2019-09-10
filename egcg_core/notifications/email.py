@@ -1,5 +1,4 @@
 import warnings
-from _socket import gaierror
 
 import jinja2
 import smtplib
