@@ -1,5 +1,6 @@
 import re
 from pyclarity_lims.lims import Lims
+from egcg_core import rest_communication
 from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.exceptions import EGCGError
@@ -107,7 +108,7 @@ def get_genome_version(sample_id, species=None):
         return None
     genome_version = s.udf.get('Genome Version', None)
     if not genome_version and species:
-        return cfg.query('species', species, 'default')
+        return rest_communication.get_document('species', where={'name': species})['default_version']
     return genome_version
 
 
