@@ -3,8 +3,7 @@ import mimetypes
 import os
 from urllib.parse import urljoin
 import requests
-from multiprocessing import Lock
-from requests.packages.urllib3.util.retry import Retry
+from multiprocessing import RLock
 from requests.adapters import HTTPAdapter
 from egcg_core.config import cfg
 from egcg_core.app_logging import AppLogger
@@ -20,11 +19,11 @@ class Communicator(AppLogger):
         self._auth = auth
         self.retries = retries
         self._sessions = {}
-        self.lock = Lock()
+        self.lock = RLock()
 
     def begin_session(self):
         s = requests.Session()
-        adapter = HTTPAdapter(max_retries=Retry(self.retries, self.retries, self.retries, backoff_factor=0.2))
+        adapter = HTTPAdapter()
         s.mount('http://', adapter)
         s.mount('https://', adapter)
 
@@ -130,7 +129,7 @@ class Communicator(AppLogger):
             raise RestCommunicationError('%s did not contain all required fields: %s' % (query_string, requires))
         return query
 
-    def _req(self, method, url, quiet=False, **kwargs):
+    def _req(self, method, url, quiet=False, retries=5, **kwargs):
         # can't upload json and files at the same time, so we need to move the json parameter to data
         # data can't upload complex structures that would require json encoding.
         # this means we can't upload data with nested lists/dicts at the same time as files
@@ -139,11 +138,15 @@ class Communicator(AppLogger):
                 raise RestCommunicationError('Cannot upload files and nested json in one query')
             kwargs['data'] = kwargs.pop('json')
 
-        self.lock.acquire()
         try:
-            r = self.session.request(method, url, **kwargs)
-        finally:
-            self.lock.release()
+            with self.lock:
+                r = self.session.request(method, url, **kwargs)
+        except Exception as e:
+            if retries > 0:
+                self.warning('Encountered a %s exception. %s retries remaining', str(e), retries)
+                return self._req(method, url, quiet, retries - 1, **kwargs)
+            else:
+                raise
 
         kwargs.pop('files', None)
         # e.g: 'POST <url> ({"some": "args"}) -> {"some": "content"}. Status code 201. Reason: CREATED

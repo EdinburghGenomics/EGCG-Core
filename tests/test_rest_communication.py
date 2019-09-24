@@ -4,9 +4,8 @@ import json
 
 import pytest
 from requests import Session
-from unittest.mock import Mock, patch, call
-
 from requests.exceptions import SSLError
+from unittest.mock import MagicMock, patch, call
 
 from tests import FakeRestResponse, TestEGCG
 from egcg_core import rest_communication
@@ -14,11 +13,8 @@ from egcg_core.util import check_if_nested
 from egcg_core.exceptions import RestCommunicationError
 
 
-def rest_url(endpoint):
-    return 'http://localhost:4999/api/0.1/' + endpoint + '/'
-
-
 test_endpoint = 'an_endpoint'
+test_url = 'http://localhost:4999/api/0.1/' + test_endpoint + '/'
 test_nested_request_content = {'data': ['some', {'test': 'content'}]}
 test_flat_request_content = {'key1': 'value1', 'key2': 'value2'}
 test_patch_document = {
@@ -56,7 +52,7 @@ class TestRestCommunication(TestEGCG):
         assert s.headers['Authorization'] == 'Token ' + hashed_token
 
     def test_api_url(self):
-        assert self.comm.api_url('an_endpoint') == rest_url('an_endpoint')
+        assert self.comm.api_url('an_endpoint') == test_url
 
     def test_parse_query_string(self):
         query_string = 'http://a_url?this=that&other={"another":"more"}&things=1'
@@ -98,32 +94,37 @@ class TestRestCommunication(TestEGCG):
     @patched_request
     def test_req(self, mocked_request):
         json_content = ['some', {'test': 'json'}]
-        for i in range(4):
-            response = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
-            assert response.status_code == 200
-            assert json.loads(response.content.decode('utf-8')) == response.json() == test_nested_request_content
-            mocked_request.assert_called_with('METHOD', rest_url(test_endpoint), json=json_content)
+        response = self.comm._req('METHOD', test_url, json=json_content)
+        assert response.status_code == 200
+        assert json.loads(response.content.decode('utf-8')) == response.json() == test_nested_request_content
+        mocked_request.assert_called_with('METHOD', test_url, json=json_content)
+
+    @patch.object(Session, 'request', side_effect=[SSLError('Error 1'), SSLError('Error 2'), FakeRestResponse(test_nested_request_content)])
+    def test_retry(self, mocked_request):
+        assert self.comm._req('METHOD', test_url, json=[]).json() == test_nested_request_content
+        c = call('METHOD', test_url, json=[])
+        mocked_request.assert_has_calls([c, c, c])
 
     @patched_failed_request
     def test_failed_req(self, mocked_request):
         json_content = ['some', {'test': 'json'}]
-        self.comm.lock = Mock()
-        self.comm.lock.acquire.assert_not_called()
-        self.comm.lock.release.assert_not_called()
+        self.comm.lock = MagicMock()
+        self.comm.lock.__enter__.assert_not_called()
+        self.comm.lock.__exit__.assert_not_called()
 
         with pytest.raises(SSLError):
-            _ = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+            _ = self.comm._req('METHOD', test_url, json=json_content)
 
-        self.comm.lock.acquire.assert_called_once()
-        self.comm.lock.release.assert_called_once()  # exception raised, but lock still released
+        assert self.comm.lock.__enter__.call_count == 6
+        assert self.comm.lock.__exit__.call_count == 6  # exception raised, but lock still released
 
     @patched_request
     def test_multi_session(self, mocked_request):
         json_content = ['some', {'test': 'json'}]
         with patch('os.getpid', return_value=1):
-            _ = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+            _ = self.comm._req('METHOD', test_url, json=json_content)
         with patch('os.getpid', return_value=2):
-            _ = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+            _ = self.comm._req('METHOD', test_url, json=json_content)
         assert len(self.comm._sessions) == 2
 
     @patched_request
@@ -131,12 +132,12 @@ class TestRestCommunication(TestEGCG):
         json_content = ['some', {'test': 'json'}]
 
         def assert_request():
-            _ = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+            _ = self.comm._req('METHOD', test_url, json=json_content)
             assert mocked_request.call_count == 2
             assert len(self.comm._sessions) == 2
 
         # initiate in the Session in the main thread
-        self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+        self.comm._req('METHOD', test_url, json=json_content)
         procs = []
         for i in range(10):
             procs.append(multiprocessing.Process(target=assert_request))
@@ -154,10 +155,10 @@ class TestRestCommunication(TestEGCG):
             mocked_enter.assert_called_once()
             mocked_exit.assert_not_called()
             for i in range(4):  # multiple calls
-                response = self.comm._req('METHOD', rest_url(test_endpoint), json=json_content)
+                response = self.comm._req('METHOD', test_url, json=json_content)
                 assert response.status_code == 200
                 assert response.json() == test_nested_request_content
-                mocked_request.assert_called_with('METHOD', rest_url(test_endpoint), json=json_content)
+                mocked_request.assert_called_with('METHOD', test_url, json=json_content)
 
         assert mocked_request.call_count == 4
         mocked_exit.assert_called_once()
@@ -168,17 +169,17 @@ class TestRestCommunication(TestEGCG):
         response = FakeRestResponse({})
         response.status_code = 500
         mocked_req.return_value = response
-        self.comm.lock = Mock()
-        self.comm.lock.acquire.assert_not_called()
-        self.comm.lock.release.assert_not_called()
+        self.comm.lock = MagicMock()
+        self.comm.lock.__enter__.assert_not_called()
+        self.comm.lock.__exit__.assert_not_called()
 
         with self.assertRaises(RestCommunicationError) as e:
             self.comm.get_document('an_endpoint')
 
         assert mocked_log.call_args[0][0].endswith('Status code 500. Reason: a reason')
         assert str(e.exception) == 'Encountered a 500 status code: a reason'
-        self.comm.lock.acquire.assert_called_once()
-        self.comm.lock.release.assert_called_once()  # exception raised, but lock still released
+        self.comm.lock.__enter__.assert_called_once()
+        self.comm.lock.__exit__.assert_called_once()  # exception raised, but lock still released
 
     @patch.object(rest_communication.Communicator, '_req')
     def test_get_documents_depaginate(self, mocked_req):
@@ -194,10 +195,10 @@ class TestRestCommunication(TestEGCG):
         mocked_req.assert_has_calls(
             (
                 # Communicator.get_content passes ints
-                call('GET', rest_url('an_endpoint'), params={'page': 1, 'max_results': 101}, quiet=False),
+                call('GET', test_url, params={'page': 1, 'max_results': 101}, quiet=False),
                 # url parsing passes strings, but requests removes the quotes anyway
-                call('GET', rest_url('an_endpoint'), params={'page': '2', 'max_results': '101'}, quiet=False),
-                call('GET', rest_url('an_endpoint'), params={'page': '3', 'max_results': '101'}, quiet=False)
+                call('GET', test_url, params={'page': '2', 'max_results': '101'}, quiet=False),
+                call('GET', test_url, params={'page': '3', 'max_results': '101'}, quiet=False)
             )
         )
 
@@ -222,7 +223,7 @@ class TestRestCommunication(TestEGCG):
         assert data == test_nested_request_content
         mocked_request.assert_called_with(
             'GET',
-            rest_url(test_endpoint),
+            test_url,
             params={'max_results': 100, 'where': '{"a_field": "thing"}', 'page': 1}
         )
 
@@ -242,7 +243,7 @@ class TestRestCommunication(TestEGCG):
         self.comm.post_entry(test_endpoint, payload=test_nested_request_content)
         mocked_request.assert_called_with(
             'POST',
-            rest_url(test_endpoint),
+            test_url,
             json=test_nested_request_content,
             files=None
         )
@@ -252,7 +253,7 @@ class TestRestCommunication(TestEGCG):
         self.comm.post_entry(test_endpoint, payload=test_request_content_plus_files)
         mocked_request.assert_called_with(
             'POST',
-            rest_url(test_endpoint),
+            test_url,
             data=test_flat_request_content,
             files={'f': (file_path, b'test content', 'text/plain')}
         )
@@ -260,7 +261,7 @@ class TestRestCommunication(TestEGCG):
         self.comm.post_entry(test_endpoint, payload=test_flat_request_content, use_data=True)
         mocked_request.assert_called_with(
             'POST',
-            rest_url(test_endpoint),
+            test_url,
             data=test_flat_request_content,
             files=None
         )
@@ -268,7 +269,7 @@ class TestRestCommunication(TestEGCG):
         self.comm.post_entry(test_endpoint, payload=test_request_content_plus_files, use_data=True)
         mocked_request.assert_called_with(
             'POST',
-            rest_url(test_endpoint),
+            test_url,
             data=test_flat_request_content,
             files={'f': (file_path, b'test content', 'text/plain')}
         )
@@ -278,7 +279,7 @@ class TestRestCommunication(TestEGCG):
         self.comm.put_entry(test_endpoint, 'an_element_id', payload=test_nested_request_content)
         mocked_request.assert_called_with(
             'PUT',
-            rest_url(test_endpoint) + 'an_element_id',
+            test_url + 'an_element_id',
             json=test_nested_request_content,
             files=None
         )
@@ -289,7 +290,7 @@ class TestRestCommunication(TestEGCG):
         self.comm.put_entry(test_endpoint, 'an_element_id', payload=test_request_content_plus_files)
         mocked_request.assert_called_with(
             'PUT',
-            rest_url(test_endpoint) + 'an_element_id',
+            test_url + 'an_element_id',
             data=test_flat_request_content,
             files={'f': (file_path, b'test content', 'text/plain')}
         )
@@ -309,7 +310,7 @@ class TestRestCommunication(TestEGCG):
         mocked_get_doc.assert_called_with(test_endpoint, where={'uid': 'a_unique_id'})
         mocked_request.assert_called_with(
             'PATCH',
-            rest_url(test_endpoint) + '1337',
+            test_url + '1337',
             headers={'If-Match': 1234567},
             json={'list_to_update': ['this', 'that', 'other', 'another']},
             files=None
@@ -322,7 +323,7 @@ class TestRestCommunication(TestEGCG):
         mocked_get_doc.assert_called_with(test_endpoint, where={'uid': 'a_unique_id'})
         mocked_request.assert_called_with(
             'PATCH',
-            rest_url(test_endpoint) + '1337',
+            test_url + '1337',
             headers={'If-Match': 1234567},
             json={'this': 'that'},
             files=None
