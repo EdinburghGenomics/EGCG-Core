@@ -253,11 +253,6 @@ class TestClarity(TestEGCG):
         mocked_names_from_plate.assert_any_call('this')
         mocked_names_from_plate.assert_any_call('that')
 
-    @patched_lims('get_processes', [FakeProcess])
-    def test_get_released_samples(self, mocked_lims):
-        assert clarity.get_released_samples() == ['that', 'this']
-        mocked_lims.assert_called_with(type='Data Release EG 1.0')
-
     @patched_clarity('get_sample', Mock(artifact=Mock(id='an_artifact_id')))
     @patched_lims('get_processes', side_effect=[[FakeProcess], [FakeProcess, FakeProcess(date_run='another_date')]])
     def test_get_sample_release_date(self, mocked_get_procs, mocked_get_sample):
