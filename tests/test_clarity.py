@@ -254,10 +254,12 @@ class TestClarity(TestEGCG):
         mocked_names_from_plate.assert_any_call('that')
 
     @patched_clarity('get_sample', Mock(artifact=Mock(id='an_artifact_id')))
-    @patched_lims('get_processes', side_effect=[[FakeProcess], [FakeProcess, FakeProcess(date_run='another_date')]])
+    @patched_lims('get_processes', side_effect=[[FakeProcess], [], [FakeProcess, FakeProcess(date_run='another_date')], []])
     def test_get_sample_release_date(self, mocked_get_procs, mocked_get_sample):
         assert clarity.get_sample_release_date('a_sample_name') == 'a_date'
-        mocked_get_procs.assert_called_with(type='Data Release EG 1.0', inputartifactlimsid='an_artifact_id')
+        mocked_get_procs.assert_any_call(type='Data Release EG 1.0', inputartifactlimsid='an_artifact_id')
+        mocked_get_procs.assert_any_call(type='Data Release EG 2.0', inputartifactlimsid='an_artifact_id')
+        assert mocked_get_procs.call_count == 2
         mocked_get_sample.assert_called_with('a_sample_name')
         mocked_get_procs.reset_mock()
         mocked_get_sample.reset_mock()
