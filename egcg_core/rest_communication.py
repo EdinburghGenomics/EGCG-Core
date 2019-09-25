@@ -1,10 +1,11 @@
 import json
 import mimetypes
 import os
-from urllib.parse import urljoin
 import requests
-from multiprocessing import RLock
 from requests.adapters import HTTPAdapter
+from time import sleep
+from urllib.parse import urljoin
+from multiprocessing import RLock
 from egcg_core.config import cfg
 from egcg_core.app_logging import AppLogger
 from egcg_core.exceptions import RestCommunicationError
@@ -144,6 +145,7 @@ class Communicator(AppLogger):
         except Exception as e:
             if retries > 0:
                 self.warning('Encountered a %s exception. %s retries remaining', str(e), retries)
+                sleep(cfg.query('rest_api', 'retry_interval', ret_default=1))
                 return self._req(method, url, quiet, retries - 1, **kwargs)
             else:
                 raise

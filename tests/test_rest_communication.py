@@ -99,14 +99,17 @@ class TestRestCommunication(TestEGCG):
         assert json.loads(response.content.decode('utf-8')) == response.json() == test_nested_request_content
         mocked_request.assert_called_with('METHOD', test_url, json=json_content)
 
+    @patch('egcg_core.rest_communication.sleep')
     @patch.object(Session, 'request', side_effect=[SSLError('Error 1'), SSLError('Error 2'), FakeRestResponse(test_nested_request_content)])
-    def test_retry(self, mocked_request):
+    def test_retry(self, mocked_request, mocked_sleep):
         assert self.comm._req('METHOD', test_url, json=[]).json() == test_nested_request_content
         c = call('METHOD', test_url, json=[])
         mocked_request.assert_has_calls([c, c, c])
+        assert mocked_sleep.call_count == 2
 
+    @patch('egcg_core.rest_communication.sleep')
     @patched_failed_request
-    def test_failed_req(self, mocked_request):
+    def test_failed_req(self, mocked_request, mocked_sleep):
         json_content = ['some', {'test': 'json'}]
         self.comm.lock = MagicMock()
         self.comm.lock.__enter__.assert_not_called()
@@ -117,6 +120,8 @@ class TestRestCommunication(TestEGCG):
 
         assert self.comm.lock.__enter__.call_count == 6
         assert self.comm.lock.__exit__.call_count == 6  # exception raised, but lock still released
+        mocked_sleep.assert_called_with(2)
+        assert mocked_sleep.call_count == 5
 
     @patched_request
     def test_multi_session(self, mocked_request):
