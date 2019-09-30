@@ -1,5 +1,6 @@
 import re
 from pyclarity_lims.lims import Lims
+from egcg_core import rest_communication
 from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.exceptions import EGCGError
@@ -107,7 +108,7 @@ def get_genome_version(sample_id, species=None):
         return None
     genome_version = s.udf.get('Genome Version', None)
     if not genome_version and species:
-        return cfg.query('species', species, 'default')
+        return rest_communication.get_document('species', where={'name': species})['default_version']
     return genome_version
 
 
@@ -270,21 +271,13 @@ def get_samples_sequenced_with(sample_name):
     return get_samples_for_same_step(sample_name, 'Sequencing Plate Preparation EG 1.0')
 
 
-def get_released_samples():
-    released_samples = []
-    processes = connection().get_processes(type='Data Release EG 1.0')
-    for process in processes:
-        for artifact in process.all_inputs():
-            released_samples.extend([sanitize_user_id(s.name) for s in artifact.samples])
-
-    return sorted(set(released_samples))
-
-
 def get_sample_release_date(sample_id):
     s = get_sample(sample_id)
     if not s:
         return None
-    procs = connection().get_processes(type='Data Release EG 1.0', inputartifactlimsid=s.artifact.id)
+    procs = []
+    for step_name in ['Data Release EG 1.0', 'Data Release EG 2.0']:
+        procs.extend(connection().get_processes(type=step_name, inputartifactlimsid=s.artifact.id))
     if not procs:
         return None
     elif len(procs) != 1:
