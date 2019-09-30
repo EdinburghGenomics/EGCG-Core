@@ -253,16 +253,14 @@ class TestClarity(TestEGCG):
         mocked_names_from_plate.assert_any_call('this')
         mocked_names_from_plate.assert_any_call('that')
 
-    @patched_lims('get_processes', [FakeProcess])
-    def test_get_released_samples(self, mocked_lims):
-        assert clarity.get_released_samples() == ['that', 'this']
-        mocked_lims.assert_called_with(type='Data Release EG 1.0')
-
     @patched_clarity('get_sample', Mock(artifact=Mock(id='an_artifact_id')))
-    @patched_lims('get_processes', side_effect=[[FakeProcess], [FakeProcess, FakeProcess(date_run='another_date')]])
+    @patched_lims('get_processes', side_effect=[[FakeProcess], [], [FakeProcess, FakeProcess(date_run='another_date')],
+                                                [], [], []])
     def test_get_sample_release_date(self, mocked_get_procs, mocked_get_sample):
         assert clarity.get_sample_release_date('a_sample_name') == 'a_date'
-        mocked_get_procs.assert_called_with(type='Data Release EG 1.0', inputartifactlimsid='an_artifact_id')
+        mocked_get_procs.assert_any_call(type='Data Release EG 1.0', inputartifactlimsid='an_artifact_id')
+        mocked_get_procs.assert_any_call(type='Data Release EG 2.0', inputartifactlimsid='an_artifact_id')
+        assert mocked_get_procs.call_count == 2
         mocked_get_sample.assert_called_with('a_sample_name')
         mocked_get_procs.reset_mock()
         mocked_get_sample.reset_mock()
@@ -271,3 +269,15 @@ class TestClarity(TestEGCG):
         clarity.app_logger.warning.assert_called_with(
             '%s Processes found for sample %s: returning latest one', 2, 'a_sample_name2'
         )
+        mocked_get_procs.reset_mock()
+        mocked_get_sample.reset_mock()
+
+        # get_processes return empty lists
+        assert clarity.get_sample_release_date('a_sample_name2') is None
+
+        # Sample does not exist
+        mocked_get_sample.return_value = None
+        mocked_get_procs.reset_mock()
+        mocked_get_sample.reset_mock()
+        assert clarity.get_sample_release_date('a_sample_name2') is None
+
