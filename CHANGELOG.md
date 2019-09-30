@@ -1,10 +1,14 @@
 Changelog for EGCG-Core
 ===========================
 
-0.12 (unreleased)
+0.12 (2019-09-30)
 -----------------
 
-- Nothing changed yet.
+- Integration tests: Load data in integration tests 
+- Use a more generic exception to catch errors when emailling
+- Rest_communication: Add Explicit  retries
+- Retrieval of default genome version now use the reporting app API  
+- In clarity script: Update delivery step name
 
 
 0.11.2 (2019-08-07)
