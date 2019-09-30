@@ -6,6 +6,7 @@ default:
         url: 'http://localhost:4999/api/0.1'
         username: 'a_user'
         password: 'a_password'
+        retry_interval: 2
 
     ncbi_cache: ':memory:'
 
