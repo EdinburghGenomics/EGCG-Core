@@ -28,6 +28,18 @@ def connection(new=False, **kwargs):
     return _lims
 
 
+# cache for lims_sample_info
+_lims_samples_info = {}
+
+
+def lims_samples_info(sample_name):
+    if sample_name not in _lims_samples_info:
+        _lims_samples_info[sample_name] = rest_communication.get_document(
+            'lims/sample_info', match={'sample_id': sample_name}
+        )
+    return _lims_samples_info.get(sample_name)
+
+
 # Run functions
 def get_valid_lanes(flowcell_name):
     """
@@ -63,6 +75,7 @@ def get_run(run_id):
 
 # Sample functions
 def find_project_name_from_sample(sample_name):
+
     samples = get_samples(sample_name)
     if samples:
         project_names = set([s.project.name for s in samples])
@@ -90,23 +103,27 @@ def find_run_elements_from_sample(sample_name):
 
 
 def get_species_from_sample(sample_name):
-    samples = get_samples(sample_name)
-    if samples:
-        species_strings = set([s.udf.get('Species') for s in samples])
-        nspecies = len(species_strings)
-        if nspecies != 1:
-            app_logger.error('%s species found for sample %s', nspecies, sample_name)
-            return None
-        species_string = species_strings.pop()
-        if species_string:
-            return get_species_name(species_string)
+    species_string = lims_samples_info(sample_name).get('Species')
+    if not species_string:
+        samples = get_samples(sample_name)
+        if samples:
+            species_strings = set([s.udf.get('Species') for s in samples])
+            nspecies = len(species_strings)
+            if nspecies != 1:
+                app_logger.error('%s species found for sample %s', nspecies, sample_name)
+                return None
+            species_string = species_strings.pop()
+    if species_string:
+        return get_species_name(species_string)
 
 
 def get_genome_version(sample_id, species=None):
-    s = get_sample(sample_id)
-    if not s:
-        return None
-    genome_version = s.udf.get('Genome Version', None)
+    genome_version = lims_samples_info(sample_id).get('Genome Version')
+    if not genome_version:
+        s = get_sample(sample_id)
+        if not s:
+            return None
+        genome_version = s.udf.get('Genome Version', None)
     if not genome_version and species:
         return rest_communication.get_document('species', where={'name': species})['default_version']
     return genome_version
@@ -181,7 +198,9 @@ def get_user_sample_name(sample_name, lenient=False):
     :param bool lenient: If True, return the sample name if no user sample name found
     :return: the user's sample name, None or the input sample name
     """
-    user_sample_name = get_sample(sample_name).udf.get('User Sample Name')
+    user_sample_name = lims_samples_info(sample_name).get('User Sample Name')
+    if not user_sample_name:
+        user_sample_name = get_sample(sample_name).udf.get('User Sample Name')
     if user_sample_name:
         return sanitize_user_id(user_sample_name)
     elif lenient:
@@ -189,9 +208,12 @@ def get_user_sample_name(sample_name, lenient=False):
 
 
 def get_sample_sex(sample_name):
-    sample = get_sample(sample_name)
-    if sample:
-        return sample.udf.get('Sex') or sample.udf.get('Gender')
+    sex = lims_samples_info(sample_name).get('Sex') or lims_samples_info(sample_name).get('Gender')
+    if not sex :
+        sample = get_sample(sample_name)
+        if sample:
+            sex = sample.udf.get('Sex') or sample.udf.get('Gender')
+    return sex
 
 
 def get_sample_genotype(sample_name, output_file_name):

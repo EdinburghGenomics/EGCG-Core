@@ -1,6 +1,7 @@
 import os
 from unittest.mock import patch, Mock
 from egcg_core import clarity
+from egcg_core.clarity import lims_samples_info
 from tests import TestEGCG
 
 
@@ -59,6 +60,7 @@ class TestClarity(TestEGCG):
     def setUp(self):
         clarity._lims = Mock()
         clarity.app_logger = Mock()
+        clarity._lims_samples_info.clear()
 
     def test_connection(self):
         clarity._lims = None
@@ -75,6 +77,13 @@ class TestClarity(TestEGCG):
         # create connection from config and param
         lims = clarity.connection(new=True, baseuri='second_uri')
         assert lims.baseuri == 'second_uri/'
+
+    @patch('egcg_core.rest_communication.get_document', return_value={'sample_id': 'a_sample'})
+    def test_lims_samples_info(self, mock_get_doc):
+        assert lims_samples_info('a_sample') == {'sample_id': 'a_sample'}
+        assert len(clarity._lims_samples_info) == 1
+        assert clarity._lims_samples_info.get('a_sample') == {'sample_id': 'a_sample'}
+        mock_get_doc.assert_called_once_with('lims/sample_info', match={'sample_id': 'a_sample'})
 
     def test_get_valid_lanes(self):
         fake_flowcell = Mock(
@@ -109,9 +118,26 @@ class TestClarity(TestEGCG):
     @patched_clarity('get_species_name', 'Genus species')
     @patched_clarity('get_samples', fake_samples)
     def test_get_species_from_sample(self, mocked_get_samples, mocked_ncbi):
+        clarity._lims_samples_info['a_sample_name'] = {'Species': 'genus species'}
+        assert clarity.get_species_from_sample('a_sample_name') == 'Genus species'
+        mocked_ncbi.assert_called_with('genus species')
+        clarity._lims_samples_info['a_sample_name'] = {}
+
         assert clarity.get_species_from_sample('a_sample_name') == 'Genus species'
         mocked_get_samples.assert_called_with('a_sample_name')
         mocked_ncbi.assert_called_with('a_species')
+
+    def test_get_genome_version(self):
+        clarity._lims_samples_info['a_sample_name'] = {'Genome Version': 'hh45'}
+        assert clarity.get_genome_version('a_sample_name', species='Homo habilis') == 'hh45'
+        clarity._lims_samples_info['a_sample_name'] = {}
+
+        with patched_clarity('get_sample', Mock(udf={'Genome Version': 'hh44'})):
+            assert clarity.get_genome_version('a_sample_name', species='Homo habilis') == 'hh44'
+
+        with patched_clarity('get_sample', Mock(udf={})), \
+             patch('egcg_core.rest_communication.get_document', return_value={'default_version': 'hh43'}):
+            assert clarity.get_genome_version('a_sample_name', species='Homo habilis') == 'hh43'
 
     def test_sanitize_user_id(self):
         assert clarity.sanitize_user_id('this?that$other another:more') == 'this_that_other_another_more'
@@ -159,11 +185,19 @@ class TestClarity(TestEGCG):
 
     @patched_clarity('get_sample', return_value=Mock(udf={'User Sample Name': 'a:user:sample:id'}))
     def test_get_user_sample_name(self, mocked_lims):
+        clarity._lims_samples_info['a_sample_id'] = {'User Sample Name': 'uid_sample1'}
+        assert clarity.get_user_sample_name('a_sample_id') == 'uid_sample1'
+        clarity._lims_samples_info['a_sample_id'] = {}
+
         assert clarity.get_user_sample_name('a_sample_id') == 'a_user_sample_id'
         mocked_lims.assert_called_with('a_sample_id')
 
     @patched_clarity('get_sample', return_value=Mock(udf={'Sex': 'unknown'}))
     def test_get_sample_sex(self, mocked_lims):
+        clarity._lims_samples_info['a_sample_id'] = {'Sex': 'Male'}
+        assert clarity.get_sample_sex('a_sample_id') == 'Male'
+        clarity._lims_samples_info['a_sample_id'] = {}
+
         assert clarity.get_sample_sex('a_sample_id') == 'unknown'
         mocked_lims.assert_called_with('a_sample_id')
 
