@@ -35,6 +35,11 @@ _lims_samples_info = {}
 
 
 def lims_samples_info(sample_name):
+    """
+    Retrieve the json from lims/sample_info and cache it per sample id.
+    :param sample_name: The name of the sample.
+    :return: sample_info json.
+    """
     if sample_name not in _lims_samples_info:
         _lims_samples_info[sample_name] = rest_communication.get_document(
             'lims/sample_info', match={'sample_id': sample_name}
