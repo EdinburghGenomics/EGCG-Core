@@ -1,8 +1,10 @@
 import re
+
 from pyclarity_lims.lims import Lims
+
 from egcg_core import rest_communication
-from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
+from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
 
 app_logger = log_cfg.get_logger(__name__)
@@ -12,9 +14,9 @@ try:
 except ImportError:
     app_logger.warning('Could not import egcg_core.ncbi. Is sqlite3 available?')
 
+
     def get_species_name(query_species):
         raise EGCGError('Could not import egcg_core.ncbi.get_species_name - sqlite3 seems to be unavailable.')
-
 
 _lims = None
 
@@ -75,7 +77,6 @@ def get_run(run_id):
 
 # Sample functions
 def find_project_name_from_sample(sample_name):
-
     samples = get_samples(sample_name)
     if samples:
         project_names = set([s.project.name for s in samples])
@@ -145,7 +146,7 @@ def get_list_of_samples(sample_names):
     max_query = 100
     results = []
     for start in range(0, len(sample_names), max_query):
-        results.extend(_get_list_of_samples(sample_names[start:start+max_query]))
+        results.extend(_get_list_of_samples(sample_names[start:start + max_query]))
     return results
 
 
@@ -209,7 +210,7 @@ def get_user_sample_name(sample_name, lenient=False):
 
 def get_sample_sex(sample_name):
     sex = lims_samples_info(sample_name).get('Sex') or lims_samples_info(sample_name).get('Gender')
-    if not sex :
+    if not sex:
         sample = get_sample(sample_name)
         if sample:
             sex = sample.udf.get('Sex') or sample.udf.get('Gender')
