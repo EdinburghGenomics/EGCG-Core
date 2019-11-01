@@ -1,10 +1,10 @@
 Changelog for EGCG-Core
 ===========================
 
-0.13 (unreleased)
+0.13 (2019-11-01)
 -----------------
 
-- Nothing changed yet.
+- Clarity function uses the reporting app lims end point whenever possible.
 
 
 0.12 (2019-09-30)
