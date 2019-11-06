@@ -127,9 +127,8 @@ def get_genome_version(sample_id, species=None):
     genome_version = lims_samples_info(sample_id).get('Genome Version')
     if not genome_version:
         s = get_sample(sample_id)
-        if not s:
-            return None
-        genome_version = s.udf.get('Genome Version', None)
+        if s:
+            genome_version = s.udf.get('Genome Version', None)
     if not genome_version and species:
         return rest_communication.get_document('species', where={'name': species})['default_version']
     return genome_version
